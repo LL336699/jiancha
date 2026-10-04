@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.archive.mapper.JcPersonRelationMapper">
+
+    <resultMap id="JcPersonRelationResult" type="com.jiancha.biz.archive.domain.JcPersonRelation">
+        <id     property="relationId"    column="relation_id"/>
+        <result property="personId"      column="person_id"/>
+        <result property="relationType"  column="relation_type"/>
+        <result property="relationName"  column="relation_name"/>
+        <result property="relationWork"  column="relation_work"/>
+        <result property="relationDuty"  column="relation_duty"/>
+        <result property="isAbroad"      column="is_abroad"/>
+        <result property="isKeyPosition" column="is_key_position"/>
+        <result property="createBy"      column="create_by"/>
+        <result property="createTime"    column="create_time"/>
+        <result property="updateBy"      column="update_by"/>
+        <result property="updateTime"    column="update_time"/>
+        <result property="delFlag"       column="del_flag"/>
+        <result property="remark"        column="remark"/>
+    </resultMap>
+
+    <sql id="selectRelationVo">
+        select relation_id, person_id, relation_type, relation_name, relation_work, relation_duty,
+               is_abroad, is_key_position, create_by, create_time, update_by, update_time, del_flag, remark
+        from jc_person_relation
+    </sql>
+
+    <select id="selectJcPersonRelationList" parameterType="com.jiancha.biz.archive.domain.JcPersonRelation" resultMap="JcPersonRelationResult">
+        <include refid="selectRelationVo"/>
+        <where>
+            del_flag = '0'
+            <if test="personId != null">and person_id = #{personId}</if>
+            <if test="relationType != null and relationType != ''">and relation_type = #{relationType}</if>
+            <if test="relationName != null and relationName != ''">and relation_name like concat('%', #{relationName}, '%')</if>
+            <if test="isAbroad != null and isAbroad != ''">and is_abroad = #{isAbroad}</if>
+        </where>
+        order by relation_id desc
+    </select>
+
+    <select id="selectByPersonId" parameterType="Long" resultMap="JcPersonRelationResult">
+        <include refid="selectRelationVo"/>
+        where person_id = #{personId} and del_flag = '0'
+    </select>
+
+    <select id="selectByRelationId" parameterType="Long" resultMap="JcPersonRelationResult">
+        <include refid="selectRelationVo"/>
+        where relation_id = #{relationId} and del_flag = '0'
+    </select>
+
+    <insert id="insertJcPersonRelation" parameterType="com.jiancha.biz.archive.domain.JcPersonRelation" useGeneratedKeys="true" keyProperty="relationId">
+        insert into jc_person_relation (
+            <trim suffixOverrides=",">
+                <if test="personId != null">person_id,</if>
+                <if test="relationType != null and relationType != ''">relation_type,</if>
+                <if test="relationName != null and relationName != ''">relation_name,</if>
+                <if test="relationWork != null and relationWork != ''">relation_work,</if>
+                <if test="relationDuty != null and relationDuty != ''">relation_duty,</if>
+                <if test="isAbroad != null and isAbroad != ''">is_abroad,</if>
+                <if test="isKeyPosition != null and isKeyPosition != ''">is_key_position,</if>
+                <if test="createBy != null and createBy != ''">create_by,</if>
+                <if test="remark != null and remark != ''">remark,</if>
+                create_time
+            </trim>
+        ) values (
+            <trim suffixOverrides=",">
+                <if test="personId != null">#{personId},</if>
+                <if test="relationType != null and relationType != ''">#{relationType},</if>
+                <if test="relationName != null and relationName != ''">#{relationName},</if>
+                <if test="relationWork != null and relationWork != ''">#{relationWork},</if>
+                <if test="relationDuty != null and relationDuty != ''">#{relationDuty},</if>
+                <if test="isAbroad != null and isAbroad != ''">#{isAbroad},</if>
+                <if test="isKeyPosition != null and isKeyPosition != ''">#{isKeyPosition},</if>
+                <if test="createBy != null and createBy != ''">#{createBy},</if>
+                <if test="remark != null and remark != ''">#{remark},</if>
+                sysdate()
+            </trim>
+        )
+    </insert>
+
+    <update id="updateJcPersonRelation" parameterType="com.jiancha.biz.archive.domain.JcPersonRelation">
+        update jc_person_relation
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="relationType != null and relationType != ''">relation_type = #{relationType},</if>
+            <if test="relationName != null and relationName != ''">relation_name = #{relationName},</if>
+            <if test="relationWork != null">relation_work = #{relationWork},</if>
+            <if test="relationDuty != null">relation_duty = #{relationDuty},</if>
+            <if test="isAbroad != null and isAbroad != ''">is_abroad = #{isAbroad},</if>
+            <if test="isKeyPosition != null and isKeyPosition != ''">is_key_position = #{isKeyPosition},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate()
+        </trim>
+        where relation_id = #{relationId}
+    </update>
+
+    <update id="deleteJcPersonRelationByRelationId" parameterType="Long">
+        update jc_person_relation set del_flag = '2', update_time = sysdate() where relation_id = #{relationId}
+    </update>
+
+    <update id="deleteByPersonId" parameterType="Long">
+        update jc_person_relation set del_flag = '2', update_time = sysdate() where person_id = #{personId}
+    </update>
+
+</mapper>

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.archive.mapper.JcPersonPunishMapper">
+
+    <resultMap id="JcPersonPunishResult" type="com.jiancha.biz.archive.domain.JcPersonPunish">
+        <id     property="punishId"      column="punish_id"/>
+        <result property="personId"      column="person_id"/>
+        <result property="punishType"    column="punish_type"/>
+        <result property="punishReason"  column="punish_reason"/>
+        <result property="punishDate"    column="punish_date"/>
+        <result property="effectiveDate" column="effective_date"/>
+        <result property="relatedCaseNo" column="related_case_no"/>
+        <result property="createBy"     column="create_by"/>
+        <result property="createTime"    column="create_time"/>
+        <result property="updateBy"     column="update_by"/>
+        <result property="updateTime"    column="update_time"/>
+        <result property="delFlag"       column="del_flag"/>
+        <result property="remark"        column="remark"/>
+    </resultMap>
+
+    <sql id="selectPunishVo">
+        select punish_id, person_id, punish_type, punish_reason, punish_date, effective_date,
+               related_case_no, create_by, create_time, update_by, update_time, del_flag, remark
+        from jc_person_punish
+    </sql>
+
+    <select id="selectJcPersonPunishList" parameterType="com.jiancha.biz.archive.domain.JcPersonPunish" resultMap="JcPersonPunishResult">
+        <include refid="selectPunishVo"/>
+        <where>
+            del_flag = '0'
+            <if test="personId != null">and person_id = #{personId}</if>
+            <if test="punishType != null and punishType != ''">and punish_type = #{punishType}</if>
+        </where>
+        order by punish_date desc
+    </select>
+
+    <select id="selectByPersonId" parameterType="Long" resultMap="JcPersonPunishResult">
+        <include refid="selectPunishVo"/>
+        where person_id = #{personId} and del_flag = '0' order by punish_date desc
+    </select>
+
+    <select id="selectByPunishId" parameterType="Long" resultMap="JcPersonPunishResult">
+        <include refid="selectPunishVo"/>
+        where punish_id = #{punishId} and del_flag = '0'
+    </select>
+
+    <insert id="insertJcPersonPunish" parameterType="com.jiancha.biz.archive.domain.JcPersonPunish" useGeneratedKeys="true" keyProperty="punishId">
+        insert into jc_person_punish (
+            <trim suffixOverrides=",">
+                <if test="personId != null">person_id,</if>
+                <if test="punishType != null and punishType != ''">punish_type,</if>
+                <if test="punishReason != null and punishReason != ''">punish_reason,</if>
+                <if test="punishDate != null">punish_date,</if>
+                <if test="effectiveDate != null">effective_date,</if>
+                <if test="relatedCaseNo != null and relatedCaseNo != ''">related_case_no,</if>
+                <if test="createBy != null and createBy != ''">create_by,</if>
+                <if test="remark != null and remark != ''">remark,</if>
+                create_time
+            </trim>
+        ) values (
+            <trim suffixOverrides=",">
+                <if test="personId != null">#{personId},</if>
+                <if test="punishType != null and punishType != ''">#{punishType},</if>
+                <if test="punishReason != null and punishReason != ''">#{punishReason},</if>
+                <if test="punishDate != null">#{punishDate},</if>
+                <if test="effectiveDate != null">#{effectiveDate},</if>
+                <if test="relatedCaseNo != null and relatedCaseNo != ''">#{relatedCaseNo},</if>
+                <if test="createBy != null and createBy != ''">#{createBy},</if>
+                <if test="remark != null and remark != ''">#{remark},</if>
+                sysdate()
+            </trim>
+        )
+    </insert>
+
+    <update id="updateJcPersonPunish" parameterType="com.jiancha.biz.archive.domain.JcPersonPunish">
+        update jc_person_punish
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="punishType != null and punishType != ''">punish_type = #{punishType},</if>
+            <if test="punishReason != null">punish_reason = #{punishReason},</if>
+            <if test="punishDate != null">punish_date = #{punishDate},</if>
+            <if test="effectiveDate != null">effective_date = #{effectiveDate},</if>
+            <if test="relatedCaseNo != null">related_case_no = #{relatedCaseNo},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate()
+        </trim>
+        where punish_id = #{punishId}
+    </update>
+
+    <update id="deleteJcPersonPunishByPunishId" parameterType="Long">
+        update jc_person_punish set del_flag = '2', update_time = sysdate() where punish_id = #{punishId}
+    </update>
+
+    <update id="deleteByPersonId" parameterType="Long">
+        update jc_person_punish set del_flag = '2', update_time = sysdate() where person_id = #{personId}
+    </update>
+
+</mapper>

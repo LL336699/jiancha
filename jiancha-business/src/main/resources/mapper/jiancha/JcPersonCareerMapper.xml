@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.archive.mapper.JcPersonCareerMapper">
+
+    <resultMap id="JcPersonCareerResult" type="com.jiancha.biz.archive.domain.JcPersonCareer">
+        <id     property="careerId"   column="career_id"/>
+        <result property="personId"   column="person_id"/>
+        <result property="position"   column="position"/>
+        <result property="deptName"   column="dept_name"/>
+        <result property="startDate"  column="start_date"/>
+        <result property="endDate"    column="end_date"/>
+        <result property="dutyDesc"   column="duty_desc"/>
+        <result property="createBy"   column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy"   column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="delFlag"    column="del_flag"/>
+        <result property="remark"     column="remark"/>
+    </resultMap>
+
+    <sql id="selectCareerVo">
+        select career_id, person_id, position, dept_name, start_date, end_date, duty_desc,
+               create_by, create_time, update_by, update_time, del_flag, remark
+        from jc_person_career
+    </sql>
+
+    <select id="selectJcPersonCareerList" parameterType="com.jiancha.biz.archive.domain.JcPersonCareer" resultMap="JcPersonCareerResult">
+        <include refid="selectCareerVo"/>
+        <where>
+            del_flag = '0'
+            <if test="personId != null">and person_id = #{personId}</if>
+            <if test="position != null and position != ''">and position like concat('%', #{position}, '%')</if>
+            <if test="deptName != null and deptName != ''">and dept_name like concat('%', #{deptName}, '%')</if>
+        </where>
+        order by start_date desc
+    </select>
+
+    <select id="selectByPersonId" parameterType="Long" resultMap="JcPersonCareerResult">
+        <include refid="selectCareerVo"/>
+        where person_id = #{personId} and del_flag = '0' order by start_date desc
+    </select>
+
+    <select id="selectByCareerId" parameterType="Long" resultMap="JcPersonCareerResult">
+        <include refid="selectCareerVo"/>
+        where career_id = #{careerId} and del_flag = '0'
+    </select>
+
+    <insert id="insertJcPersonCareer" parameterType="com.jiancha.biz.archive.domain.JcPersonCareer" useGeneratedKeys="true" keyProperty="careerId">
+        insert into jc_person_career (
+            <trim suffixOverrides=",">
+                <if test="personId != null">person_id,</if>
+                <if test="position != null and position != ''">position,</if>
+                <if test="deptName != null and deptName != ''">dept_name,</if>
+                <if test="startDate != null">start_date,</if>
+                <if test="endDate != null">end_date,</if>
+                <if test="dutyDesc != null and dutyDesc != ''">duty_desc,</if>
+                <if test="createBy != null and createBy != ''">create_by,</if>
+                <if test="remark != null and remark != ''">remark,</if>
+                create_time
+            </trim>
+        ) values (
+            <trim suffixOverrides=",">
+                <if test="personId != null">#{personId},</if>
+                <if test="position != null and position != ''">#{position},</if>
+                <if test="deptName != null and deptName != ''">#{deptName},</if>
+                <if test="startDate != null">#{startDate},</if>
+                <if test="endDate != null">#{endDate},</if>
+                <if test="dutyDesc != null and dutyDesc != ''">#{dutyDesc},</if>
+                <if test="createBy != null and createBy != ''">#{createBy},</if>
+                <if test="remark != null and remark != ''">#{remark},</if>
+                sysdate()
+            </trim>
+        )
+    </insert>
+
+    <update id="updateJcPersonCareer" parameterType="com.jiancha.biz.archive.domain.JcPersonCareer">
+        update jc_person_career
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="position != null and position != ''">position = #{position},</if>
+            <if test="deptName != null and deptName != ''">dept_name = #{deptName},</if>
+            <if test="startDate != null">start_date = #{startDate},</if>
+            <if test="endDate != null">end_date = #{endDate},</if>
+            <if test="dutyDesc != null">duty_desc = #{dutyDesc},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate()
+        </trim>
+        where career_id = #{careerId}
+    </update>
+
+    <update id="deleteJcPersonCareerByCareerId" parameterType="Long">
+        update jc_person_career set del_flag = '2', update_time = sysdate() where career_id = #{careerId}
+    </update>
+
+    <update id="deleteByPersonId" parameterType="Long">
+        update jc_person_career set del_flag = '2', update_time = sysdate() where person_id = #{personId}
+    </update>
+
+</mapper>

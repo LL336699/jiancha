@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.archive.mapper.JcPersonTagMapper">
+
+    <resultMap id="JcPersonTagResult" type="com.jiancha.biz.archive.domain.JcPersonTag">
+        <id     property="tagId"      column="tag_id"/>
+        <result property="personId"   column="person_id"/>
+        <result property="tagType"    column="tag_type"/>
+        <result property="tagName"    column="tag_name"/>
+        <result property="tagLevel"   column="tag_level"/>
+        <result property="tagSource"  column="tag_source"/>
+        <result property="sourceTable" column="source_table"/>
+        <result property="sourceId"   column="source_id"/>
+        <result property="createBy"   column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy"   column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="delFlag"    column="del_flag"/>
+        <result property="remark"     column="remark"/>
+    </resultMap>
+
+    <sql id="selectTagVo">
+        select tag_id, person_id, tag_type, tag_name, tag_level, tag_source,
+               source_table, source_id, create_by, create_time, update_by, update_time, del_flag, remark
+        from jc_person_tag
+    </sql>
+
+    <select id="selectJcPersonTagList" parameterType="com.jiancha.biz.archive.domain.JcPersonTag" resultMap="JcPersonTagResult">
+        <include refid="selectTagVo"/>
+        <where>
+            del_flag = '0'
+            <if test="personId != null">
+                and person_id = #{personId}
+            </if>
+            <if test="tagType != null and tagType != ''">
+                and tag_type = #{tagType}
+            </if>
+            <if test="tagName != null and tagName != ''">
+                and tag_name like concat('%', #{tagName}, '%')
+            </if>
+            <if test="tagLevel != null and tagLevel != ''">
+                and tag_level = #{tagLevel}
+            </if>
+        </where>
+        order by tag_level desc, create_time desc
+    </select>
+
+    <select id="selectByPersonId" parameterType="Long" resultMap="JcPersonTagResult">
+        <include refid="selectTagVo"/>
+        where person_id = #{personId} and del_flag = '0'
+        order by tag_level desc, create_time desc
+    </select>
+
+    <select id="selectByTagId" parameterType="Long" resultMap="JcPersonTagResult">
+        <include refid="selectTagVo"/>
+        where tag_id = #{tagId} and del_flag = '0'
+    </select>
+
+    <insert id="insertJcPersonTag" parameterType="com.jiancha.biz.archive.domain.JcPersonTag" useGeneratedKeys="true" keyProperty="tagId">
+        insert into jc_person_tag (
+            <trim suffixOverrides=",">
+                <if test="personId != null">person_id,</if>
+                <if test="tagType != null and tagType != ''">tag_type,</if>
+                <if test="tagName != null and tagName != ''">tag_name,</if>
+                <if test="tagLevel != null and tagLevel != ''">tag_level,</if>
+                <if test="tagSource != null and tagSource != ''">tag_source,</if>
+                <if test="sourceTable != null and sourceTable != ''">source_table,</if>
+                <if test="sourceId != null">source_id,</if>
+                <if test="createBy != null and createBy != ''">create_by,</if>
+                <if test="remark != null and remark != ''">remark,</if>
+                create_time
+            </trim>
+        ) values (
+            <trim suffixOverrides=",">
+                <if test="personId != null">#{personId},</if>
+                <if test="tagType != null and tagType != ''">#{tagType},</if>
+                <if test="tagName != null and tagName != ''">#{tagName},</if>
+                <if test="tagLevel != null and tagLevel != ''">#{tagLevel},</if>
+                <if test="tagSource != null and tagSource != ''">#{tagSource},</if>
+                <if test="sourceTable != null and sourceTable != ''">#{sourceTable},</if>
+                <if test="sourceId != null">#{sourceId},</if>
+                <if test="createBy != null and createBy != ''">#{createBy},</if>
+                <if test="remark != null and remark != ''">#{remark},</if>
+                sysdate()
+            </trim>
+        )
+    </insert>
+
+    <update id="updateJcPersonTag" parameterType="com.jiancha.biz.archive.domain.JcPersonTag">
+        update jc_person_tag
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="tagType != null and tagType != ''">tag_type = #{tagType},</if>
+            <if test="tagName != null and tagName != ''">tag_name = #{tagName},</if>
+            <if test="tagLevel != null and tagLevel != ''">tag_level = #{tagLevel},</if>
+            <if test="tagSource != null">tag_source = #{tagSource},</if>
+            <if test="sourceTable != null">source_table = #{sourceTable},</if>
+            <if test="sourceId != null">source_id = #{sourceId},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate()
+        </trim>
+        where tag_id = #{tagId}
+    </update>
+
+    <update id="deleteJcPersonTagByTagId" parameterType="Long">
+        update jc_person_tag set del_flag = '2', update_time = sysdate() where tag_id = #{tagId}
+    </update>
+
+    <update id="deleteByPersonId" parameterType="Long">
+        update jc_person_tag set del_flag = '2', update_time = sysdate() where person_id = #{personId}
+    </update>
+
+    <update id="deleteBySourceTable">
+        update jc_person_tag set del_flag = '2', update_time = sysdate()
+        where person_id = #{personId} and source_table = #{sourceTable}
+    </update>
+
+</mapper>
