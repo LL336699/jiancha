@@ -1,0 +1,79 @@
+# ============================================================
+# 纪检监察助手 JIANCHA · AI 能力配置
+#
+# 版本约束（务必遵守）：
+#   Spring AI 1.1.x仅支持 Spring Boot 3.5.x
+#   因此后端必须用 RuoYi-Vue 的 springboot3 分支，master 分支（SB4.x）不兼容
+#
+# 供应商切换：自用改 jiancha.ai.provider=openai（云端）
+#             公司改 jiancha.ai.provider=ollama（私有化，数据不出内网）
+#             业务代码零改动
+# ============================================================
+
+spring:
+  # Chroma 向量库开发期暂不启用，排除其自动装配（P4 接 RAG 时再打开）
+  autoconfigure:
+    exclude: org.springframework.ai.vectorstore.chroma.autoconfigure.ChromaVectorStoreAutoConfiguration
+  ai:
+    # ── 关闭未使用的模型自动装配（我们用自研 Provider 抽象层，不经这些 Bean）──
+    model:
+      chat: none
+      embedding: none
+      image: none
+      audio:
+        speech: none
+        transcription: none
+      moderation: none
+
+    # ── 云端对话模型（DeepSeek / 通义 / Kimi / vLLM 等 OpenAI 兼容端点）──
+    openai:
+      api-key: ${DEEPSEEK_API_KEY:sk-placeholder}
+      base-url: ${LLM_BASE_URL:https://api.deepseek.com}
+      chat:
+        options:
+          model: ${LLM_CHAT_MODEL:deepseek-chat}
+          # 纪检场景要严谨，不要创造性输出
+          temperature: 0.2
+          max-tokens: 4096
+
+    # ── 本地私有化对话模型（公司部署时启用）──
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://127.0.0.1:11434}
+      chat:
+        options:
+          model: ${OLLAMA_CHAT_MODEL:qwen2.5:14b}
+          temperature: 0.2
+
+    # ── 对话记忆（JDBC 持久化，支持多轮上下文）──
+    chat:
+      memory:
+        repository:
+          type: jdbc
+
+    # ── 向量库（开发期Chroma 嵌入式；生产期可切 Redis/Milvus）──
+    vectorstore:
+      chroma:
+        enabled: false
+        initialize-schema: true
+
+# ============================================================
+# 纪检助手业务配置
+# ============================================================
+jiancha:
+  ai:
+    # 当前供应商：openai | ollama
+    provider: ${AI_PROVIDER:openai}
+    # 强制带出处（纪检刚性要求，原则上不关）
+    enable-citation: true
+    # 记录 AI 调用日志（审计与成本核算）
+    enable-audit-log: true
+    # RAG 相似度阈值，低于此值不调模型，直接返回"知识库中无相关规定支撑"
+    rag-similarity-threshold: 3.0
+    # RAG 召回数量
+    rag-top-k: 8
+    # 流式响应超时（秒）
+    stream-timeout: 120
+    # 单次上传最大尺寸（MB）
+    max-upload-size-mb: 50
+    # 文档解析超时（秒），超限标记为需人工处理
+    parse-timeout-seconds: 30

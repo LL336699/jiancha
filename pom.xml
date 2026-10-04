@@ -31,6 +31,8 @@
         <jwt.version>0.9.1</jwt.version>
         <jaxb-api.version>2.3.1</jaxb-api.version>
         <springdoc.version>2.9.0</springdoc.version>
+        <spring-ai.version>1.1.2</spring-ai.version>
+        <tika.version>2.9.2</tika.version>
     </properties>
 
     <!-- 依赖声明 -->
@@ -170,6 +172,34 @@
                 <version>${ruoyi.version}</version>
             </dependency>
 
+            <!-- 纪检监察助手业务模块 -->
+            <dependency>
+                <groupId>com.ruoyi</groupId>
+                <artifactId>jiancha-business</artifactId>
+                <version>${ruoyi.version}</version>
+            </dependency>
+
+            <!-- Spring AI：统一管理 AI 相关依赖版本（必须与 Spring Boot 3.5.x 匹配） -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- 文档解析：Tika统一 50+ 格式入口 -->
+            <dependency>
+                <groupId>org.apache.tika</groupId>
+                <artifactId>tika-core</artifactId>
+                <version>${tika.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tika</groupId>
+                <artifactId>tika-parsers-standard-package</artifactId>
+                <version>${tika.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -180,6 +210,7 @@
         <module>ruoyi-quartz</module>
         <module>ruoyi-generator</module>
         <module>ruoyi-common</module>
+        <module>jiancha-business</module>
     </modules>
     <packaging>pom</packaging>
 

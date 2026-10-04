@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.archive.mapper.JcPersonMapper">
+
+    <resultMap id="JcPersonResult" type="com.jiancha.biz.archive.domain.JcPerson">
+        <id     property="personId"       column="person_id"/>
+        <result property="personCode"     column="person_code"/>
+        <result property="name"           column="name"/>
+        <result property="idCardEnc"      column="id_card_enc"/>
+        <result property="gender"         column="gender"/>
+        <result property="birthDate"      column="birth_date"/>
+        <result property="deptId"         column="dept_id"/>
+        <result property="deptPath"       column="dept_path"/>
+        <result property="position"       column="position"/>
+        <result property="politicalStatus" column="political_status"/>
+        <result property="entryDate"      column="entry_date"/>
+        <result property="status"         column="status"/>
+        <result property="riskLevel"      column="risk_level"/>
+        <result property="integrityScore" column="integrity_score"/>
+        <result property="avatar"         column="avatar"/>
+        <result property="createBy"       column="create_by"/>
+        <result property="createTime"     column="create_time"/>
+        <result property="updateBy"       column="update_by"/>
+        <result property="updateTime"     column="update_time"/>
+        <result property="delFlag"        column="del_flag"/>
+        <result property="remark"         column="remark"/>
+    </resultMap>
+
+    <sql id="selectJcPersonVo">
+        select person_id, person_code, name, id_card_enc, gender, birth_date, dept_id, dept_path,
+               position, political_status, entry_date, status, risk_level, integrity_score, avatar,
+               create_by, create_time, update_by, update_time, del_flag, remark
+        from jc_person
+    </sql>
+
+    <select id="selectJcPersonList" parameterType="com.jiancha.biz.archive.domain.JcPerson" resultMap="JcPersonResult">
+        <include refid="selectJcPersonVo"/>
+        <where>
+            del_flag = '0'
+            <if test="name != null and name != ''">
+                and name like concat('%', #{name}, '%')
+            </if>
+            <if test="personCode != null and personCode != ''">
+                and person_code = #{personCode}
+            </if>
+            <if test="deptId != null">
+                and dept_id = #{deptId}
+            </if>
+            <if test="status != null and status != ''">
+                and status = #{status}
+            </if>
+            <if test="riskLevel != null and riskLevel != ''">
+                and risk_level = #{riskLevel}
+            </if>
+            <if test="position != null and position != ''">
+                and position like concat('%', #{position}, '%')
+            </if>
+        </where>
+        order by person_code asc
+    </select>
+
+    <select id="selectJcPersonByPersonId" parameterType="Long" resultMap="JcPersonResult">
+        <include refid="selectJcPersonVo"/>
+        where person_id = #{personId}
+    </select>
+
+    <select id="countAll" resultType="int">
+        select count(1) from jc_person where del_flag = '0'
+    </select>
+
+    <insert id="insertJcPerson" parameterType="com.jiancha.biz.archive.domain.JcPerson" useGeneratedKeys="true" keyProperty="personId">
+        insert into jc_person (
+            <trim suffixOverrides=",">
+                <if test="personCode != null and personCode != ''">person_code,</if>
+                <if test="name != null and name != ''">name,</if>
+                <if test="idCardEnc != null and idCardEnc != ''">id_card_enc,</if>
+                <if test="gender != null and gender != ''">gender,</if>
+                <if test="birthDate != null">birth_date,</if>
+                <if test="deptId != null">dept_id,</if>
+                <if test="deptPath != null and deptPath != ''">dept_path,</if>
+                <if test="position != null and position != ''">position,</if>
+                <if test="politicalStatus != null and politicalStatus != ''">political_status,</if>
+                <if test="entryDate != null">entry_date,</if>
+                <if test="status != null and status != ''">status,</if>
+                <if test="riskLevel != null and riskLevel != ''">risk_level,</if>
+                <if test="integrityScore != null">integrity_score,</if>
+                <if test="avatar != null and avatar != ''">avatar,</if>
+                <if test="createBy != null and createBy != ''">create_by,</if>
+                <if test="remark != null and remark != ''">remark,</if>
+                create_time
+            </trim>
+        ) values (
+            <trim suffixOverrides=",">
+                <if test="personCode != null and personCode != ''">#{personCode},</if>
+                <if test="name != null and name != ''">#{name},</if>
+                <if test="idCardEnc != null and idCardEnc != ''">#{idCardEnc},</if>
+                <if test="gender != null and gender != ''">#{gender},</if>
+                <if test="birthDate != null">#{birthDate},</if>
+                <if test="deptId != null">#{deptId},</if>
+                <if test="deptPath != null and deptPath != ''">#{deptPath},</if>
+                <if test="position != null and position != ''">#{position},</if>
+                <if test="politicalStatus != null and politicalStatus != ''">#{politicalStatus},</if>
+                <if test="entryDate != null">#{entryDate},</if>
+                <if test="status != null and status != ''">#{status},</if>
+                <if test="riskLevel != null and riskLevel != ''">#{riskLevel},</if>
+                <if test="integrityScore != null">#{integrityScore},</if>
+                <if test="avatar != null and avatar != ''">#{avatar},</if>
+                <if test="createBy != null and createBy != ''">#{createBy},</if>
+                <if test="remark != null and remark != ''">#{remark},</if>
+                sysdate()
+            </trim>
+        )
+    </insert>
+
+    <update id="updateJcPerson" parameterType="com.jiancha.biz.archive.domain.JcPerson">
+        update jc_person
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="personCode != null and personCode != ''">person_code = #{personCode},</if>
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="idCardEnc != null">id_card_enc = #{idCardEnc},</if>
+            <if test="gender != null and gender != ''">gender = #{gender},</if>
+            <if test="birthDate != null">birth_date = #{birthDate},</if>
+            <if test="deptId != null">dept_id = #{deptId},</if>
+            <if test="deptPath != null">dept_path = #{deptPath},</if>
+            <if test="position != null and position != ''">position = #{position},</if>
+            <if test="politicalStatus != null">political_status = #{politicalStatus},</if>
+            <if test="entryDate != null">entry_date = #{entryDate},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="riskLevel != null and riskLevel != ''">risk_level = #{riskLevel},</if>
+            <if test="integrityScore != null">integrity_score = #{integrityScore},</if>
+            <if test="avatar != null">avatar = #{avatar},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate()
+        </trim>
+        where person_id = #{personId}
+    </update>
+
+    <update id="deleteJcPersonByPersonId" parameterType="Long">
+        update jc_person set del_flag = '2', update_time = sysdate() where person_id = #{personId}
+    </update>
+
+</mapper>

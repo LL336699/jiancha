@@ -54,6 +54,12 @@
             <artifactId>ruoyi-generator</artifactId>
         </dependency>
 
+        <!-- 纪检监察助手业务模块（M1-M10 + AI 能力）-->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>jiancha-business</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>
