@@ -3,25 +3,38 @@
 <mapper namespace="com.jiancha.biz.archive.mapper.JcPersonRelationMapper">
 
     <resultMap id="JcPersonRelationResult" type="com.jiancha.biz.archive.domain.JcPersonRelation">
-        <id     property="relationId"    column="relation_id"/>
-        <result property="personId"      column="person_id"/>
-        <result property="relationType"  column="relation_type"/>
-        <result property="relationName"  column="relation_name"/>
-        <result property="relationWork"  column="relation_work"/>
-        <result property="relationDuty"  column="relation_duty"/>
-        <result property="isAbroad"      column="is_abroad"/>
-        <result property="isKeyPosition" column="is_key_position"/>
-        <result property="createBy"      column="create_by"/>
-        <result property="createTime"    column="create_time"/>
-        <result property="updateBy"      column="update_by"/>
-        <result property="updateTime"    column="update_time"/>
-        <result property="delFlag"       column="del_flag"/>
-        <result property="remark"        column="remark"/>
+        <id     property="relationId"     column="relation_id"/>
+        <result property="personId"       column="person_id"/>
+        <result property="relationType"   column="relation_type"/>
+        <result property="relationName"   column="relation_name"/>
+        <result property="relationWork"   column="relation_work"/>
+        <result property="relationDuty"   column="relation_duty"/>
+        <result property="entName"        column="ent_name"/>
+        <result property="entCreditCode"  column="ent_credit_code"/>
+        <result property="relationKind"   column="relation_kind"/>
+        <result property="holdRatio"      column="hold_ratio"/>
+        <result property="isSupplier"     column="is_supplier"/>
+        <result property="isCustomer"     column="is_customer"/>
+        <result property="partnerType"    column="partner_type"/>
+        <result property="startDate"      column="start_date"/>
+        <result property="endDate"        column="end_date"/>
+        <result property="isAbroad"       column="is_abroad"/>
+        <result property="isKeyPosition"  column="is_key_position"/>
+        <result property="verifyStatus"   column="verify_status"/>
+        <result property="dataSource"     column="data_source"/>
+        <result property="createBy"       column="create_by"/>
+        <result property="createTime"     column="create_time"/>
+        <result property="updateBy"       column="update_by"/>
+        <result property="updateTime"     column="update_time"/>
+        <result property="delFlag"        column="del_flag"/>
+        <result property="remark"         column="remark"/>
     </resultMap>
 
     <sql id="selectRelationVo">
         select relation_id, person_id, relation_type, relation_name, relation_work, relation_duty,
-               is_abroad, is_key_position, create_by, create_time, update_by, update_time, del_flag, remark
+               ent_name, ent_credit_code, relation_kind, hold_ratio, is_supplier, is_customer,
+               partner_type, start_date, end_date, is_abroad, is_key_position, verify_status,
+               data_source, create_by, create_time, update_by, update_time, del_flag, remark
         from jc_person_relation
     </sql>
 
@@ -32,6 +45,11 @@
             <if test="personId != null">and person_id = #{personId}</if>
             <if test="relationType != null and relationType != ''">and relation_type = #{relationType}</if>
             <if test="relationName != null and relationName != ''">and relation_name like concat('%', #{relationName}, '%')</if>
+            <if test="entName != null and entName != ''">and ent_name like concat('%', #{entName}, '%')</if>
+            <if test="relationKind != null and relationKind != ''">and relation_kind = #{relationKind}</if>
+            <if test="isSupplier != null and isSupplier != ''">and is_supplier = #{isSupplier}</if>
+            <if test="isCustomer != null and isCustomer != ''">and is_customer = #{isCustomer}</if>
+            <if test="verifyStatus != null and verifyStatus != ''">and verify_status = #{verifyStatus}</if>
             <if test="isAbroad != null and isAbroad != ''">and is_abroad = #{isAbroad}</if>
         </where>
         order by relation_id desc
@@ -55,8 +73,19 @@
                 <if test="relationName != null and relationName != ''">relation_name,</if>
                 <if test="relationWork != null and relationWork != ''">relation_work,</if>
                 <if test="relationDuty != null and relationDuty != ''">relation_duty,</if>
+                <if test="entName != null and entName != ''">ent_name,</if>
+                <if test="entCreditCode != null and entCreditCode != ''">ent_credit_code,</if>
+                <if test="relationKind != null and relationKind != ''">relation_kind,</if>
+                <if test="holdRatio != null">hold_ratio,</if>
+                <if test="isSupplier != null and isSupplier != ''">is_supplier,</if>
+                <if test="isCustomer != null and isCustomer != ''">is_customer,</if>
+                <if test="partnerType != null and partnerType != ''">partner_type,</if>
+                <if test="startDate != null">start_date,</if>
+                <if test="endDate != null">end_date,</if>
                 <if test="isAbroad != null and isAbroad != ''">is_abroad,</if>
                 <if test="isKeyPosition != null and isKeyPosition != ''">is_key_position,</if>
+                <if test="verifyStatus != null and verifyStatus != ''">verify_status,</if>
+                <if test="dataSource != null and dataSource != ''">data_source,</if>
                 <if test="createBy != null and createBy != ''">create_by,</if>
                 <if test="remark != null and remark != ''">remark,</if>
                 create_time
@@ -68,8 +97,19 @@
                 <if test="relationName != null and relationName != ''">#{relationName},</if>
                 <if test="relationWork != null and relationWork != ''">#{relationWork},</if>
                 <if test="relationDuty != null and relationDuty != ''">#{relationDuty},</if>
+                <if test="entName != null and entName != ''">#{entName},</if>
+                <if test="entCreditCode != null and entCreditCode != ''">#{entCreditCode},</if>
+                <if test="relationKind != null and relationKind != ''">#{relationKind},</if>
+                <if test="holdRatio != null">#{holdRatio},</if>
+                <if test="isSupplier != null and isSupplier != ''">#{isSupplier},</if>
+                <if test="isCustomer != null and isCustomer != ''">#{isCustomer},</if>
+                <if test="partnerType != null and partnerType != ''">#{partnerType},</if>
+                <if test="startDate != null">#{startDate},</if>
+                <if test="endDate != null">#{endDate},</if>
                 <if test="isAbroad != null and isAbroad != ''">#{isAbroad},</if>
                 <if test="isKeyPosition != null and isKeyPosition != ''">#{isKeyPosition},</if>
+                <if test="verifyStatus != null and verifyStatus != ''">#{verifyStatus},</if>
+                <if test="dataSource != null and dataSource != ''">#{dataSource},</if>
                 <if test="createBy != null and createBy != ''">#{createBy},</if>
                 <if test="remark != null and remark != ''">#{remark},</if>
                 sysdate()
@@ -81,11 +121,22 @@
         update jc_person_relation
         <trim prefix="SET" suffixOverrides=",">
             <if test="relationType != null and relationType != ''">relation_type = #{relationType},</if>
-            <if test="relationName != null and relationName != ''">relation_name = #{relationName},</if>
+            <if test="relationName != null">relation_name = #{relationName},</if>
             <if test="relationWork != null">relation_work = #{relationWork},</if>
             <if test="relationDuty != null">relation_duty = #{relationDuty},</if>
+            <if test="entName != null">ent_name = #{entName},</if>
+            <if test="entCreditCode != null">ent_credit_code = #{entCreditCode},</if>
+            <if test="relationKind != null">relation_kind = #{relationKind},</if>
+            <if test="holdRatio != null">hold_ratio = #{holdRatio},</if>
+            <if test="isSupplier != null and isSupplier != ''">is_supplier = #{isSupplier},</if>
+            <if test="isCustomer != null and isCustomer != ''">is_customer = #{isCustomer},</if>
+            <if test="partnerType != null">partner_type = #{partnerType},</if>
+            <if test="startDate != null">start_date = #{startDate},</if>
+            <if test="endDate != null">end_date = #{endDate},</if>
             <if test="isAbroad != null and isAbroad != ''">is_abroad = #{isAbroad},</if>
             <if test="isKeyPosition != null and isKeyPosition != ''">is_key_position = #{isKeyPosition},</if>
+            <if test="verifyStatus != null and verifyStatus != ''">verify_status = #{verifyStatus},</if>
+            <if test="dataSource != null and dataSource != ''">data_source = #{dataSource},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
             <if test="remark != null">remark = #{remark},</if>
             update_time = sysdate()

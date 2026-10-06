@@ -5,11 +5,15 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.common.utils.SecurityUtils;
+import com.jiancha.biz.archive.domain.JcConflictDeclare;
+import com.jiancha.biz.archive.domain.JcConflictItem;
 import com.jiancha.biz.archive.domain.JcPerson;
 import com.jiancha.biz.archive.domain.JcPersonCareer;
 import com.jiancha.biz.archive.domain.JcPersonPunish;
@@ -17,6 +21,8 @@ import com.jiancha.biz.archive.domain.JcPersonRelation;
 import com.jiancha.biz.archive.domain.JcPersonTag;
 import com.jiancha.biz.archive.domain.RiskEvaluationResult;
 import com.jiancha.biz.archive.domain.RiskHit;
+import com.jiancha.biz.archive.mapper.JcConflictDeclareMapper;
+import com.jiancha.biz.archive.mapper.JcConflictItemMapper;
 import com.jiancha.biz.archive.mapper.JcPersonCareerMapper;
 import com.jiancha.biz.archive.mapper.JcPersonMapper;
 import com.jiancha.biz.archive.mapper.JcPersonPunishMapper;
@@ -27,16 +33,18 @@ import com.jiancha.biz.archive.service.IJcPersonTagService;
 import com.jiancha.biz.archive.service.IRiskWarnService;
 
 /**
- * 廉政风险预警（12 类）服务实现。
+ * 企业版风险预警引擎（12 类 + 处分执行跟踪）。
  *
- * <p>规则实现说明（参考设计文档 M5 12 类预警）：
+ * <p>规则口径已由党政版切换为<b>企业 / 自用版</b>：移除"裸官、子女经商、频繁调动、突击提拔"
+ * 等党政专属规则，改为企业真实场景的利益冲突与舞弊风险规则。</p>
+ *
+ * <p>实现方式分两类：
  * <ul>
- *   <li>数据可派生的规则（1/2/3/4/5/10/11）直接基于档案子表计算；</li>
- *   <li>依赖未建表的规则（6 频繁请假 / 7 财产申报异常 / 8 涉标关联 / 9 审批跳跃 / 12 信访集中反映）
- *       本期通过已有的"风险"类廉政画像标签兜底识别，待 M4/M10 相关数据表建成后自动转为数据派生。</li>
+ *   <li>数据可派生（1/2/7/8/11/13）：直接基于档案子表与利益冲突申报数据计算；</li>
+ *   <li>标签兜底（3/4/5/6/9/10/12）：依赖外部业务系统数据（采购、报销、考勤等），
+ *       本期通过"风险"类廉政画像标签识别，待对应数据表建成后自动转为数据派生。</li>
  * </ul>
- * 所有命中均写出证据，保证可溯源。
- * </p>
+ * 所有命中均写出证据，保证可溯源。</p>
  *
  * @author 小标
  */
@@ -46,6 +54,10 @@ public class RiskWarnServiceImpl implements IRiskWarnService
     private static final int PENALTY_HIGH = 30;
     private static final int PENALTY_MID = 15;
     private static final int PENALTY_LOW = 5;
+
+    /** 关键岗位未轮岗预警年限阈值 */
+    private static final int ROTATE_WARN_YEARS = 5;
+    private static final int ROTATE_HIGH_YEARS = 8;
 
     @Autowired
     private JcPersonMapper personMapper;
@@ -57,6 +69,10 @@ public class RiskWarnServiceImpl implements IRiskWarnService
     private JcPersonPunishMapper punishMapper;
     @Autowired
     private JcPersonTagMapper tagMapper;
+    @Autowired
+    private JcConflictDeclareMapper declareMapper;
+    @Autowired
+    private JcConflictItemMapper itemMapper;
     @Autowired
     private IJcPersonService personService;
     @Autowired
@@ -75,98 +91,170 @@ public class RiskWarnServiceImpl implements IRiskWarnService
         List<JcPersonPunish> punishes = punishMapper.selectByPersonId(personId);
         List<JcPersonTag> tags = tagMapper.selectByPersonId(personId);
 
+        // 利益冲突申报：已申报的企业主体名称集合，用于漏报比对
+        Set<String> declaredEnts = new HashSet<>();
+        boolean hasDoubtDeclare = false;
+        List<JcConflictDeclare> declares = declareMapper.selectByPersonId(personId);
+        for (JcConflictDeclare d : declares)
+        {
+            if ("存疑".equals(d.getStatus()))
+            {
+                hasDoubtDeclare = true;
+            }
+            List<JcConflictItem> items = itemMapper.selectByDeclareId(d.getDeclareId());
+            for (JcConflictItem it : items)
+            {
+                if (hasText(it.getEntName()))
+                {
+                    declaredEnts.add(it.getEntName().trim());
+                }
+            }
+        }
+
+        boolean keyPosition = false;
+        for (JcPersonRelation r : relations)
+        {
+            if ("1".equals(r.getIsKeyPosition()))
+            {
+                keyPosition = true;
+                break;
+            }
+        }
+
         List<RiskHit> hits = new ArrayList<>();
 
-        // 规则1 兼职取酬
+        // 规则1 员工亲属设立/持股供应商
         for (JcPersonRelation r : relations)
         {
-            if ("本人".equals(r.getRelationType()) && hasText(r.getRelationWork()))
+            boolean kin = !"本人".equals(orEmpty(r.getRelationType()));
+            boolean holder = "持股".equals(r.getRelationKind()) || "实际控制".equals(r.getRelationKind());
+            boolean supplier = "1".equals(r.getIsSupplier());
+            if (kin && (supplier || holder))
             {
-                hits.add(hit(1, "兼职取酬", "高",
-                        "本人存在经商办企业/兼职取酬记录",
-                        "relation_id=" + r.getRelationId() + " work=" + r.getRelationWork(),
-                        "核实是否违规兼职取酬，按《公务员法》处理"));
+                hits.add(hit(1, "亲属设立/持股供应商", "高",
+                        "亲属（" + orEmpty(r.getRelationType()) + "）" + (supplier ? "为本公司供应商" : "")
+                                + (holder ? "持股/实际控制经营主体" : "") + "，存在利益输送风险",
+                        "relation_id=" + r.getRelationId() + " ent=" + orEmpty(r.getEntName())
+                                + " ratio=" + r.getHoldRatio() + " kind=" + orEmpty(r.getRelationKind()),
+                        "核查该供应商准入与交易公允性，必要时回避或调整岗位"));
             }
         }
-        // 规则2 裸官
+        // 规则2 本人或亲属在合作方任职/兼职取酬（含本人经商办企业）
         for (JcPersonRelation r : relations)
         {
-            if ("1".equals(r.getIsAbroad()) && "1".equals(r.getIsKeyPosition()))
+            String kind = orEmpty(r.getRelationKind());
+            boolean employed = "任职".equals(kind) || "兼职取酬".equals(kind) || "劳务报酬".equals(kind);
+            boolean partner = "1".equals(r.getIsSupplier()) || "1".equals(r.getIsCustomer());
+            boolean selfBiz = "本人".equals(orEmpty(r.getRelationType()))
+                    && ("持股".equals(kind) || "任职".equals(kind) || "实际控制".equals(kind));
+            if (employed && partner)
             {
-                hits.add(hit(2, "裸官", "高",
-                        "配偶/子女在境外且本人任关键岗位",
-                        "relation_id=" + r.getRelationId(),
-                        "按裸官管理规定调整岗位"));
+                hits.add(hit(2, "合作方任职/兼职取酬", "高",
+                        "本人或关联人在本公司合作方任职/兼职取酬",
+                        "relation_id=" + r.getRelationId() + " ent=" + orEmpty(r.getEntName())
+                                + " duty=" + orEmpty(r.getRelationDuty()) + " kind=" + kind,
+                        "按利益冲突管理要求责令整改或停止兼职"));
+            }
+            else if (selfBiz)
+            {
+                hits.add(hit(2, "本人经商办企业", "高",
+                        "本人存在经商办企业/持股/实际控制经营主体记录",
+                        "relation_id=" + r.getRelationId() + " ent=" + orEmpty(r.getEntName())
+                                + " ratio=" + r.getHoldRatio(),
+                        "核实是否违反公司兼职与经商禁止性规定"));
             }
         }
-        // 规则3 子女经商办企业
-        for (JcPersonRelation r : relations)
-        {
-            if (("配偶".equals(r.getRelationType()) || "子女".equals(r.getRelationType()) || "父母".equals(r.getRelationType()))
-                    && hasText(r.getRelationWork()))
-            {
-                hits.add(hit(3, "子女经商办企业", "中",
-                        "直系亲属经商办企业，需关注与本人职权关联",
-                        "relation_id=" + r.getRelationId() + " work=" + r.getRelationWork(),
-                        "核查经营范围与职权是否存在利益冲突"));
-            }
-        }
-        // 规则4 频繁调动（近3年调动>=3次）
-        long recentMoves = careers.stream()
-                .filter(c -> c.getStartDate() != null)
-                .filter(c -> !toLocalDate(c.getStartDate()).isBefore(LocalDate.now().minusYears(3)))
-                .count();
-        if (recentMoves >= 3)
-        {
-            hits.add(hit(4, "频繁调动", "中",
-                    "近3年内调动 " + recentMoves + " 次",
-                    "career 记录近3年 " + recentMoves + " 条",
-                    "关注调动合理性，排查突击调整"));
-        }
-        // 规则5 突击提拔
+        // 规则7 关键岗位长期未轮岗
+        Date latestStart = null;
         for (JcPersonCareer c : careers)
         {
-            if (hasText(c.getDutyDesc()) && (c.getDutyDesc().contains("破格") || c.getDutyDesc().contains("突击")))
+            if (c.getStartDate() != null && (latestStart == null || c.getStartDate().after(latestStart)))
             {
-                hits.add(hit(5, "突击提拔", "中",
-                        "任职描述含破格/突击提拔字样",
-                        "career_id=" + c.getCareerId(),
-                        "复核提拔程序合规性"));
+                latestStart = c.getStartDate();
             }
         }
-        // 规则10 离职后异常
+        if (latestStart != null)
+        {
+            long days = LocalDate.now().toEpochDay() - toLocalDate(latestStart).toEpochDay();
+            int years = (int) (days / 365);
+            if (years >= ROTATE_HIGH_YEARS)
+            {
+                hits.add(hit(7, "关键岗位长期未轮岗", "高",
+                        "现岗位连续任职约 " + years + " 年，超过 " + ROTATE_HIGH_YEARS + " 年阈值",
+                        "career 最近起始日期 " + toLocalDate(latestStart) + " keyPosition=" + keyPosition,
+                        "纳入轮岗计划，必要时开展离任/在任审计"));
+            }
+            else if (years >= ROTATE_WARN_YEARS && keyPosition)
+            {
+                hits.add(hit(7, "关键岗位长期未轮岗", "中",
+                        "关键岗位现职约 " + years + " 年，达到 " + ROTATE_WARN_YEARS + " 年预警阈值",
+                        "career 最近起始日期 " + toLocalDate(latestStart),
+                        "纳入轮岗观察名单"));
+            }
+        }
+        // 规则8 申报矛盾/漏报
+        if (hasDoubtDeclare)
+        {
+            hits.add(hit(8, "申报核实存疑", "中",
+                    "存在核实结论为【存疑】的利益冲突申报",
+                    "person_id=" + personId + " declares=" + declares.size(),
+                    "跟进存疑事项核实与处置"));
+        }
+        for (JcPersonRelation r : relations)
+        {
+            String ent = r.getEntName();
+            if (!hasText(ent))
+            {
+                continue;
+            }
+            boolean related = "1".equals(r.getIsSupplier()) || "1".equals(r.getIsCustomer())
+                    || "持股".equals(r.getRelationKind()) || "任职".equals(r.getRelationKind())
+                    || "实际控制".equals(r.getRelationKind());
+            if (related && !declaredEnts.contains(ent.trim()))
+            {
+                hits.add(hit(8, "关联主体漏报", "中",
+                        "关联档案中存在经营主体「" + ent + "」，但历次申报均未填报",
+                        "relation_id=" + r.getRelationId() + " declared=" + declaredEnts,
+                        "要求本人补充申报并说明情况"));
+            }
+        }
+        // 规则11 旋转门：离职后任职合作方
         if ("离职".equals(person.getStatus()))
         {
             for (JcPersonRelation r : relations)
             {
-                if (hasText(r.getRelationWork()))
+                if ("1".equals(r.getIsSupplier()) || "1".equals(r.getIsCustomer()))
                 {
-                    hits.add(hit(10, "离职后异常", "中",
-                            "离职后本人/亲属仍关联经营主体",
-                            "relation_id=" + r.getRelationId(),
-                            "核查是否存在离职后利益输送"));
+                    hits.add(hit(11, "旋转门", "中",
+                            "离职人员仍与本公司合作方存在任职/持股关联",
+                            "relation_id=" + r.getRelationId() + " ent=" + orEmpty(r.getEntName())
+                                    + " start=" + r.getStartDate(),
+                            "核查离职后从业限制与竞业限制执行情况"));
                     break;
                 }
             }
         }
-        // 规则11 处分执行异常
+        // 规则13 处分执行异常（企业版保留：内部处分执行跟踪）
         for (JcPersonPunish p : punishes)
         {
             if (p.getEffectiveDate() == null || !hasText(p.getRelatedCaseNo()))
             {
-                hits.add(hit(11, "处分执行异常", "中",
-                        "处分记录缺少生效日期或关联案件编号",
+                hits.add(hit(13, "处分执行异常", "中",
+                        "处分记录缺少生效日期或关联案件编号，执行闭环不完整",
                         "punish_id=" + p.getPunishId(),
                         "补全处分执行与案件关联记录"));
             }
         }
-        // 规则6/7/8/9/12 依赖未建表，经已有的风险类标签兜底识别
+        // 规则3/4/5/6/9/10/12 依赖外部业务数据，经风险类标签兜底识别
         Map<String, Integer> tagRule = new HashMap<>();
-        tagRule.put("频繁请假", 6);
-        tagRule.put("财产申报异常", 7);
-        tagRule.put("涉标关联", 8);
-        tagRule.put("审批跳跃", 9);
-        tagRule.put("信访集中反映", 12);
+        tagRule.put("采购审批跳跃", 3);
+        tagRule.put("单一来源", 4);
+        tagRule.put("围标", 5);
+        tagRule.put("串标", 5);
+        tagRule.put("费用报销", 6);
+        tagRule.put("举报", 9);
+        tagRule.put("审批权限", 10);
+        tagRule.put("频繁请假", 12);
         for (JcPersonTag t : tags)
         {
             if (!"风险".equals(t.getTagType()) || t.getTagName() == null)
@@ -177,10 +265,11 @@ public class RiskWarnServiceImpl implements IRiskWarnService
             {
                 if (t.getTagName().contains(e.getKey()))
                 {
-                    hits.add(hit(e.getValue(), e.getKey(), orDefault(t.getTagLevel(), "中"),
+                    String name = tagRuleName(e.getValue());
+                    hits.add(hit(e.getValue(), name, orDefault(t.getTagLevel(), "中"),
                             "根据廉政画像标签识别：" + t.getTagName(),
                             "tag_id=" + t.getTagId() + " source=" + t.getSourceTable() + "#" + t.getSourceId(),
-                            "结合原始记录核实"));
+                            "结合原始业务记录核实"));
                 }
             }
         }
@@ -239,6 +328,22 @@ public class RiskWarnServiceImpl implements IRiskWarnService
         return res;
     }
 
+    /** 标签兜底规则的名称（用于展示） */
+    private String tagRuleName(int no)
+    {
+        switch (no)
+        {
+            case 3: return "采购审批跳跃";
+            case 4: return "单一来源采购异常集中";
+            case 5: return "围标串标特征";
+            case 6: return "费用报销异常";
+            case 9: return "被举报集中反映";
+            case 10: return "审批权限与金额不匹配";
+            case 12: return "频繁请假等弱信号";
+            default: return "其他风险";
+        }
+    }
+
     private RiskHit hit(int no, String name, String level, String desc, String ev, String sug)
     {
         RiskHit h = new RiskHit();
@@ -275,6 +380,11 @@ public class RiskWarnServiceImpl implements IRiskWarnService
     private boolean hasText(String s)
     {
         return s != null && !s.trim().isEmpty();
+    }
+
+    private String orEmpty(String s)
+    {
+        return s == null ? "" : s;
     }
 
     private String orDefault(String v, String d)

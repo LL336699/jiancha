@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.archive.mapper.JcConflictItemMapper">
+
+    <resultMap id="JcConflictItemResult" type="com.jiancha.biz.archive.domain.JcConflictItem">
+        <id     property="itemId"         column="item_id"/>
+        <result property="declareId"      column="declare_id"/>
+        <result property="itemType"       column="item_type"/>
+        <result property="itemDesc"       column="item_desc"/>
+        <result property="entName"        column="ent_name"/>
+        <result property="entCreditCode"  column="ent_credit_code"/>
+        <result property="holdRatio"      column="hold_ratio"/>
+        <result property="relationPerson" column="relation_person"/>
+        <result property="isConflict"     column="is_conflict"/>
+        <result property="handleAdvice"   column="handle_advice"/>
+        <result property="createBy"       column="create_by"/>
+        <result property="createTime"     column="create_time"/>
+        <result property="updateBy"       column="update_by"/>
+        <result property="updateTime"     column="update_time"/>
+        <result property="delFlag"        column="del_flag"/>
+        <result property="remark"         column="remark"/>
+    </resultMap>
+
+    <sql id="selectItemVo">
+        select item_id, declare_id, item_type, item_desc, ent_name, ent_credit_code, hold_ratio,
+               relation_person, is_conflict, handle_advice, create_by, create_time, update_by,
+               update_time, del_flag, remark
+        from jc_conflict_item
+    </sql>
+
+    <select id="selectByDeclareId" parameterType="Long" resultMap="JcConflictItemResult">
+        <include refid="selectItemVo"/>
+        where declare_id = #{declareId} and del_flag = '0'
+        order by item_id
+    </select>
+
+    <select id="selectByItemId" parameterType="Long" resultMap="JcConflictItemResult">
+        <include refid="selectItemVo"/>
+        where item_id = #{itemId} and del_flag = '0'
+    </select>
+
+    <insert id="insertJcConflictItem" parameterType="com.jiancha.biz.archive.domain.JcConflictItem" useGeneratedKeys="true" keyProperty="itemId">
+        insert into jc_conflict_item (
+            <trim suffixOverrides=",">
+                <if test="declareId != null">declare_id,</if>
+                <if test="itemType != null and itemType != ''">item_type,</if>
+                <if test="itemDesc != null and itemDesc != ''">item_desc,</if>
+                <if test="entName != null and entName != ''">ent_name,</if>
+                <if test="entCreditCode != null and entCreditCode != ''">ent_credit_code,</if>
+                <if test="holdRatio != null">hold_ratio,</if>
+                <if test="relationPerson != null and relationPerson != ''">relation_person,</if>
+                <if test="isConflict != null and isConflict != ''">is_conflict,</if>
+                <if test="handleAdvice != null and handleAdvice != ''">handle_advice,</if>
+                <if test="createBy != null and createBy != ''">create_by,</if>
+                <if test="remark != null and remark != ''">remark,</if>
+                create_time
+            </trim>
+        ) values (
+            <trim suffixOverrides=",">
+                <if test="declareId != null">#{declareId},</if>
+                <if test="itemType != null and itemType != ''">#{itemType},</if>
+                <if test="itemDesc != null and itemDesc != ''">#{itemDesc},</if>
+                <if test="entName != null and entName != ''">#{entName},</if>
+                <if test="entCreditCode != null and entCreditCode != ''">#{entCreditCode},</if>
+                <if test="holdRatio != null">#{holdRatio},</if>
+                <if test="relationPerson != null and relationPerson != ''">#{relationPerson},</if>
+                <if test="isConflict != null and isConflict != ''">#{isConflict},</if>
+                <if test="handleAdvice != null and handleAdvice != ''">#{handleAdvice},</if>
+                <if test="createBy != null and createBy != ''">#{createBy},</if>
+                <if test="remark != null and remark != ''">#{remark},</if>
+                sysdate()
+            </trim>
+        )
+    </insert>
+
+    <update id="updateJcConflictItem" parameterType="com.jiancha.biz.archive.domain.JcConflictItem">
+        update jc_conflict_item
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="itemType != null and itemType != ''">item_type = #{itemType},</if>
+            <if test="itemDesc != null">item_desc = #{itemDesc},</if>
+            <if test="entName != null">ent_name = #{entName},</if>
+            <if test="entCreditCode != null">ent_credit_code = #{entCreditCode},</if>
+            <if test="holdRatio != null">hold_ratio = #{holdRatio},</if>
+            <if test="relationPerson != null">relation_person = #{relationPerson},</if>
+            <if test="isConflict != null and isConflict != ''">is_conflict = #{isConflict},</if>
+            <if test="handleAdvice != null">handle_advice = #{handleAdvice},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate()
+        </trim>
+        where item_id = #{itemId}
+    </update>
+
+    <update id="deleteJcConflictItemByItemId" parameterType="Long">
+        update jc_conflict_item set del_flag = '2', update_time = sysdate() where item_id = #{itemId}
+    </update>
+
+    <update id="deleteByDeclareId" parameterType="Long">
+        update jc_conflict_item set del_flag = '2', update_time = sysdate() where declare_id = #{declareId}
+    </update>
+
+</mapper>
