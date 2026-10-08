@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.clue.mapper.JcClueMapper">
+
+    <resultMap id="JcClueResult" type="com.jiancha.biz.clue.domain.JcClue">
+        <id     property="clueId"          column="clue_id"/>
+        <result property="clueNo"          column="clue_no"/>
+        <result property="sourceType"      column="source_type"/>
+        <result property="violationType"   column="violation_type"/>
+        <result property="personId"        column="person_id"/>
+        <result property="relatedPersons"  column="related_persons"/>
+        <result property="summary"         column="summary"/>
+        <result property="detail"          column="detail"/>
+        <result property="deptId"          column="dept_id"/>
+        <result property="handlerId"       column="handler_id"/>
+        <result property="status"          column="status"/>
+        <result property="disposition"     column="disposition"/>
+        <result property="deadline"        column="deadline"/>
+        <result property="warnLevel"       column="warn_level"/>
+        <result property="isDuplicate"     column="is_duplicate"/>
+        <result property="duplicateOf"     column="duplicate_of"/>
+        <result property="sourceRef"       column="source_ref"/>
+        <result property="createBy"        column="create_by"/>
+        <result property="createTime"      column="create_time"/>
+        <result property="updateBy"        column="update_by"/>
+        <result property="updateTime"      column="update_time"/>
+        <result property="remark"          column="remark"/>
+        <!-- 关联展示字段 -->
+        <result property="personName"      column="person_name"/>
+        <result property="deptName"        column="dept_name"/>
+        <result property="handlerName"     column="handler_name"/>
+        <result property="remainDays"      column="remain_days"/>
+    </resultMap>
+
+    <sql id="selectClueJoin">
+        select c.clue_id, c.clue_no, c.source_type, c.violation_type, c.person_id, c.related_persons,
+               c.summary, c.detail, c.dept_id, c.handler_id, c.status, c.disposition, c.deadline,
+               c.warn_level, c.is_duplicate, c.duplicate_of, c.source_ref,
+               c.create_by, c.create_time, c.update_by, c.update_time, c.remark,
+               p.name       as person_name,
+               d.dept_name  as dept_name,
+               u.nick_name  as handler_name,
+               case when c.deadline is null then null
+                    else datediff(c.deadline, curdate()) end as remain_days
+        from jc_clue c
+        left join jc_person p on p.person_id = c.person_id
+        left join sys_dept  d on d.dept_id   = c.dept_id
+        left join sys_user  u on u.user_id   = c.handler_id
+    </sql>
+
+    <select id="selectJcClueList" parameterType="com.jiancha.biz.clue.domain.JcClue" resultMap="JcClueResult">
+        <include refid="selectClueJoin"/>
+        <where>
+            c.del_flag = '0'
+            <if test="clueNo != null and clueNo != ''">
+                and c.clue_no like concat('%', #{clueNo}, '%')
+            </if>
+            <if test="sourceType != null and sourceType != ''">
+                and c.source_type = #{sourceType}
+            </if>
+            <if test="violationType != null and violationType != ''">
+                and c.violation_type = #{violationType}
+            </if>
+            <if test="status != null and status != ''">
+                and c.status = #{status}
+            </if>
+            <if test="warnLevel != null and warnLevel != ''">
+                and c.warn_level = #{warnLevel}
+            </if>
+            <if test="personId != null">
+                and c.person_id = #{personId}
+            </if>
+            <if test="deptId != null">
+                and c.dept_id = #{deptId}
+            </if>
+            <if test="handlerId != null">
+                and c.handler_id = #{handlerId}
+            </if>
+            <if test="summary != null and summary != ''">
+                and c.summary like concat('%', #{summary}, '%')
+            </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and date_format(c.create_time, '%Y%m%d') &gt;= date_format(#{params.beginTime}, '%Y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and date_format(c.create_time, '%Y%m%d') &lt;= date_format(#{params.endTime}, '%Y%m%d')
+            </if>
+        </where>
+        order by
+            case when c.status in ('4','5') then 1 else 0 end,
+            case c.warn_level when '红灯' then 0 when '黄灯' then 1 else 2 end,
+            c.deadline asc,
+            c.create_time desc
+    </select>
+
+    <select id="selectJcClueByClueId" parameterType="Long" resultMap="JcClueResult">
+        <include refid="selectClueJoin"/>
+        where c.clue_id = #{clueId}
+    </select>
+
+    <select id="selectMaxNoByPrefix" resultType="String">
+        select max(clue_no) from jc_clue where clue_no like concat(#{prefix}, '%')
+    </select>
+
+    <select id="selectDuplicateCandidates" resultMap="JcClueResult">
+        <include refid="selectClueJoin"/>
+        where c.del_flag = '0'
+          and c.person_id = #{personId}
+        <if test="excludeClueId != null">
+          and c.clue_id != #{excludeClueId}
+        </if>
+          and c.create_time &gt;= date_sub(curdate(), interval #{days} day)
+        order by c.create_time desc
+    </select>
+
+    <select id="selectActiveClues" resultMap="JcClueResult">
+        <include refid="selectClueJoin"/>
+        where c.del_flag = '0' and c.status not in ('4','5')
+        order by c.deadline asc
+    </select>
+
+    <insert id="insertJcClue" parameterType="com.jiancha.biz.clue.domain.JcClue" useGeneratedKeys="true" keyProperty="clueId">
+        insert into jc_clue (
+            <trim suffixOverrides=",">
+                <if test="clueNo != null and clueNo != ''">clue_no,</if>
+                <if test="sourceType != null and sourceType != ''">source_type,</if>
+                <if test="violationType != null and violationType != ''">violation_type,</if>
+                <if test="personId != null">person_id,</if>
+                <if test="relatedPersons != null and relatedPersons != ''">related_persons,</if>
+                <if test="summary != null and summary != ''">summary,</if>
+                <if test="detail != null and detail != ''">detail,</if>
+                <if test="deptId != null">dept_id,</if>
+                <if test="handlerId != null">handler_id,</if>
+                <if test="status != null and status != ''">status,</if>
+                <if test="disposition != null and disposition != ''">disposition,</if>
+                <if test="deadline != null">deadline,</if>
+                <if test="warnLevel != null and warnLevel != ''">warn_level,</if>
+                <if test="isDuplicate != null and isDuplicate != ''">is_duplicate,</if>
+                <if test="duplicateOf != null">duplicate_of,</if>
+                <if test="sourceRef != null and sourceRef != ''">source_ref,</if>
+                <if test="createBy != null and createBy != ''">create_by,</if>
+                <if test="remark != null and remark != ''">remark,</if>
+                create_time
+            </trim>
+        ) values (
+            <trim suffixOverrides=",">
+                <if test="clueNo != null and clueNo != ''">#{clueNo},</if>
+                <if test="sourceType != null and sourceType != ''">#{sourceType},</if>
+                <if test="violationType != null and violationType != ''">#{violationType},</if>
+                <if test="personId != null">#{personId},</if>
+                <if test="relatedPersons != null and relatedPersons != ''">#{relatedPersons},</if>
+                <if test="summary != null and summary != ''">#{summary},</if>
+                <if test="detail != null and detail != ''">#{detail},</if>
+                <if test="deptId != null">#{deptId},</if>
+                <if test="handlerId != null">#{handlerId},</if>
+                <if test="status != null and status != ''">#{status},</if>
+                <if test="disposition != null and disposition != ''">#{disposition},</if>
+                <if test="deadline != null">#{deadline},</if>
+                <if test="warnLevel != null and warnLevel != ''">#{warnLevel},</if>
+                <if test="isDuplicate != null and isDuplicate != ''">#{isDuplicate},</if>
+                <if test="duplicateOf != null">#{duplicateOf},</if>
+                <if test="sourceRef != null and sourceRef != ''">#{sourceRef},</if>
+                <if test="createBy != null and createBy != ''">#{createBy},</if>
+                <if test="remark != null and remark != ''">#{remark},</if>
+                sysdate()
+            </trim>
+        )
+    </insert>
+
+    <update id="updateJcClue" parameterType="com.jiancha.biz.clue.domain.JcClue">
+        update jc_clue
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="clueNo != null and clueNo != ''">clue_no = #{clueNo},</if>
+            <if test="sourceType != null and sourceType != ''">source_type = #{sourceType},</if>
+            <if test="violationType != null">violation_type = #{violationType},</if>
+            <if test="personId != null">person_id = #{personId},</if>
+            <if test="relatedPersons != null">related_persons = #{relatedPersons},</if>
+            <if test="summary != null and summary != ''">summary = #{summary},</if>
+            <if test="detail != null">detail = #{detail},</if>
+            <if test="deptId != null">dept_id = #{deptId},</if>
+            <if test="handlerId != null">handler_id = #{handlerId},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="disposition != null">disposition = #{disposition},</if>
+            <if test="deadline != null">deadline = #{deadline},</if>
+            <if test="warnLevel != null">warn_level = #{warnLevel},</if>
+            <if test="isDuplicate != null">is_duplicate = #{isDuplicate},</if>
+            <if test="duplicateOf != null">duplicate_of = #{duplicateOf},</if>
+            <if test="sourceRef != null">source_ref = #{sourceRef},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate()
+        </trim>
+        where clue_id = #{clueId}
+    </update>
+
+    <update id="updateWarnLevel">
+        update jc_clue set warn_level = #{warnLevel}, update_time = sysdate() where clue_id = #{clueId}
+    </update>
+
+    <update id="deleteJcClueByClueId" parameterType="Long">
+        update jc_clue set del_flag = '2', update_time = sysdate() where clue_id = #{clueId}
+    </update>
+
+    <!-- ═══════════════════════ 统计 ═══════════════════════ -->
+
+    <select id="statBySource" resultType="com.jiancha.biz.clue.domain.ClueStatItem">
+        select source_type as name, count(1) as `count`
+        from jc_clue where del_flag = '0' group by source_type
+    </select>
+
+    <select id="statByViolationType" resultType="com.jiancha.biz.clue.domain.ClueStatItem">
+        select violation_type as name, count(1) as `count`
+        from jc_clue where del_flag = '0' group by violation_type
+    </select>
+
+    <select id="statByStatus" resultType="com.jiancha.biz.clue.domain.ClueStatItem">
+        select status as name, count(1) as `count`
+        from jc_clue where del_flag = '0' group by status
+    </select>
+
+    <select id="statByWarnLevel" resultType="com.jiancha.biz.clue.domain.ClueStatItem">
+        select warn_level as name, count(1) as `count`
+        from jc_clue where del_flag = '0' group by warn_level
+    </select>
+
+    <select id="statByDept" resultType="com.jiancha.biz.clue.domain.ClueStatItem">
+        select coalesce(d.dept_name, '未指定') as name, count(1) as `count`
+        from jc_clue c left join sys_dept d on d.dept_id = c.dept_id
+        where c.del_flag = '0' group by d.dept_name
+    </select>
+
+    <select id="statMonthly" resultType="com.jiancha.biz.clue.domain.ClueStatItem">
+        select date_format(create_time, '%Y-%m') as name, count(1) as `count`
+        from jc_clue
+        where del_flag = '0'
+          and create_time &gt;= date_sub(curdate(), interval #{months} month)
+        group by date_format(create_time, '%Y-%m')
+        order by name
+    </select>
+
+    <select id="countActive" resultType="int">
+        select count(1) from jc_clue where del_flag = '0' and status not in ('4','5')
+    </select>
+
+    <select id="countOverdue" resultType="int">
+        select count(1) from jc_clue
+        where del_flag = '0' and status not in ('4','5') and deadline is not null and deadline &lt; curdate()
+    </select>
+
+    <select id="countMonth" resultType="int">
+        select count(1) from jc_clue
+        where del_flag = '0' and date_format(create_time, '%Y%m') = date_format(curdate(), '%Y%m')
+    </select>
+
+    <select id="countAll" resultType="int">
+        select count(1) from jc_clue where del_flag = '0'
+    </select>
+
+</mapper>

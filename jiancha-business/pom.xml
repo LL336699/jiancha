@@ -36,6 +36,12 @@
             <artifactId>pagehelper-spring-boot-starter</artifactId>
         </dependency>
 
+        <!-- 系统模块：读取 sys_config 业务参数（线索办理时限等，避免硬编码） -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-system</artifactId>
+        </dependency>
+
         <!-- ==================================================================
              Spring AI 依赖
              注意：1.1.x 必须搭配 Spring Boot 3.5.x（master 分支的 SB4.x 不兼容）

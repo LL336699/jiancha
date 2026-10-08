@@ -11,13 +11,17 @@
 # ============================================================
 
 spring:
-  # Chroma 向量库开发期暂不启用，排除其自动装配（P4 接 RAG 时再打开）
+  # Chroma 向量库开发期暂不启用（P4 接 RAG 时再打开）；
+  # Ollama 自动装配关闭，避免与 OpenAI 产生两个 ChatModel 导致 ChatClient.Builder 注入失败。
+  # 切换私有化时：provider 改 ollama，并把下面 OllamaChatAutoConfiguration 换成 OpenAiChatAutoConfiguration。
   autoconfigure:
-    exclude: org.springframework.ai.vectorstore.chroma.autoconfigure.ChromaVectorStoreAutoConfiguration
+    exclude:
+      - org.springframework.ai.vectorstore.chroma.autoconfigure.ChromaVectorStoreAutoConfiguration
+      - org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration
   ai:
-    # ── 关闭未使用的模型自动装配（我们用自研 Provider 抽象层，不经这些 Bean）──
+    # ── chat 交给 openai 自动装配（提供 ChatModel Bean，P2 修复扫描后 AI 模块真正加载，必需）──
+    #    其余未用模型仍关闭，防止空 key 炸装配
     model:
-      chat: none
       embedding: none
       image: none
       audio:
@@ -44,11 +48,9 @@ spring:
           model: ${OLLAMA_CHAT_MODEL:qwen2.5:14b}
           temperature: 0.2
 
-    # ── 对话记忆（JDBC 持久化，支持多轮上下文）──
+    # ── 对话记忆（默认内存版；JDBC 持久化待引入对应 starter 后再启用）──
     chat:
       memory:
-        repository:
-          type: jdbc
 
     # ── 向量库（开发期Chroma 嵌入式；生产期可切 Redis/Milvus）──
     vectorstore:
