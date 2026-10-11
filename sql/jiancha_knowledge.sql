@@ -21,6 +21,7 @@ INSERT INTO sys_menu VALUES (2200, '知识库', '2000', '4', 'kb', null, '', '',
 INSERT INTO sys_menu VALUES (2201, '知识库问答', '2200', '1', 'kbchat', 'jiancha/kb/chat/index', '', '', 1, 0, 'C', '0', '0', 'jiancha:kb:chat:query', 'education', 'admin', sysdate(), '', null, '知识库 RAG 问答（回答必须带出处）');
 INSERT INTO sys_menu VALUES (2211, '知识检索', '2201', '1', '', '', '', '', 1, 0, 'F', '0', '0', 'jiancha:kb:chat:query',   '#', 'admin', sysdate(), '', null, '');
 INSERT INTO sys_menu VALUES (2212, '会话清空', '2201', '2', '', '', '', '', 1, 0, 'F', '0', '0', 'jiancha:kb:chat:clear',   '#', 'admin', sysdate(), '', null, '');
+INSERT INTO sys_menu VALUES (2213, 'AI智能问答', '2201', '3', '', '', '', '', 1, 0, 'F', '0', '0', 'jiancha:ai:query',      '#', 'admin', sysdate(), '', null, 'AI 通用问答（/jiancha/ai/chat、/chat/stream）权限，后端 AiChatController 要求');
 
 -- 2202 文档管理
 INSERT INTO sys_menu VALUES (2202, '文档管理', '2200', '2', 'kbdoc', 'jiancha/kb/doc/index', '', '', 1, 0, 'C', '0', '0', 'jiancha:kb:doc:list', 'upload', 'admin', sysdate(), '', null, '知识库文档管理（解析/分块/向量化）');

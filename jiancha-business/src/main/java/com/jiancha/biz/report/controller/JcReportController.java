@@ -3,9 +3,11 @@ package com.jiancha.biz.report.controller;
 import com.jiancha.biz.report.domain.JcReportRecord;
 import com.jiancha.biz.report.domain.JcReportTemplate;
 import com.jiancha.biz.report.service.IJcReportService;
+import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
+import com.ruoyi.common.enums.BusinessType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -44,6 +46,7 @@ public class JcReportController extends BaseController {
     }
 
     /** 生成文书草稿 + 量纪建议 */
+    @Log(title = "文书辅助-生成", businessType = BusinessType.INSERT)
     @PreAuthorize("@ss.hasPermi('jiancha:report:generate')")
     @PostMapping("/generate")
     public AjaxResult generate(@RequestBody Map<String, Object> body) {

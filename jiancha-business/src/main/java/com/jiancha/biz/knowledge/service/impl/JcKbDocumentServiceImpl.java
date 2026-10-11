@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +55,12 @@ public class JcKbDocumentServiceImpl implements IJcKbDocumentService {
     private static final String ST_PARSING = "解析中";
     private static final String ST_READY = "已入库";
     private static final String ST_FAILED = "解析失败";
+
+    /** 允许入库的文档扩展名（白名单，拒绝 exe/jsp/sh 等危险类型） */
+    private static final Set<String> ALLOWED_EXT = Set.of(
+            "pdf", "doc", "docx", "txt", "md", "rtf",
+            "xls", "xlsx", "ppt", "pptx", "csv", "xml",
+            "wps", "et", "dps");
 
     @Autowired
     private JcKbDocumentMapper documentMapper;
@@ -136,6 +143,12 @@ public class JcKbDocumentServiceImpl implements IJcKbDocumentService {
         if (file.getSize() > sizeLimit) {
             throw new ServiceException("文件超过大小上限 " + maxUploadSizeMb + "MB");
         }
+        // 扩展名白名单：仅允许文档类，拒绝可执行/脚本等危险类型（防恶意文件入库）
+        String ext = extractExt(file.getOriginalFilename());
+        if (!ALLOWED_EXT.contains(ext)) {
+            throw new ServiceException("不支持的文件类型：." + (ext.isEmpty() ? "(无扩展名)" : ext)
+                    + "；仅允许 " + String.join("、", ALLOWED_EXT));
+        }
 
         // ① 哈希去重：同一份文件重复上传直接复用已有记录
         String hash = sha256(file);
@@ -157,7 +170,7 @@ public class JcKbDocumentServiceImpl implements IJcKbDocumentService {
         doc.setCategoryId(categoryId);
         doc.setFileHash(hash);
         doc.setFileSize(file.getSize());
-        doc.setDocType(extractExt(file.getOriginalFilename()));
+        doc.setDocType(ext);
         doc.setStatus(ST_PENDING);
         doc.setChunkCount(0);
         doc.setCreateBy(operator);
