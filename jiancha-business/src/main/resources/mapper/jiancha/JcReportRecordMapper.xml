@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.report.mapper.JcReportRecordMapper">
+
+    <resultMap id="JcReportRecordResult" type="com.jiancha.biz.report.domain.JcReportRecord">
+        <result property="recordId"         column="record_id"/>
+        <result property="templateId"       column="template_id"/>
+        <result property="docType"          column="doc_type"/>
+        <result property="title"            column="title"/>
+        <result property="inputJson"        column="input_json"/>
+        <result property="generatedContent" column="generated_content"/>
+        <result property="penaltyAdvice"    column="penalty_advice"/>
+        <result property="operator"         column="operator"/>
+        <result property="deptName"         column="dept_name"/>
+        <result property="createTime"       column="create_time"/>
+    </resultMap>
+
+    <sql id="selectRecordVo">
+        select record_id, template_id, doc_type, title, input_json, generated_content,
+               penalty_advice, operator, dept_name, create_time
+        from jc_report_record
+    </sql>
+
+    <select id="selectByPrimaryKey" resultMap="JcReportRecordResult">
+        <include refid="selectRecordVo"/>
+        where record_id = #{recordId}
+    </select>
+
+    <select id="selectList" resultMap="JcReportRecordResult">
+        <include refid="selectRecordVo"/>
+        where del_flag = '0'
+        <if test="record.docType != null and record.docType != ''">
+            and doc_type = #{record.docType}
+        </if>
+        <if test="record.title != null and record.title != ''">
+            and title like concat('%', #{record.title}, '%')
+        </if>
+        order by record_id desc
+    </select>
+
+    <insert id="insert" parameterType="com.jiancha.biz.report.domain.JcReportRecord" useGeneratedKeys="true" keyProperty="recordId" keyColumn="record_id">
+        insert into jc_report_record
+            (template_id, doc_type, title, input_json, generated_content, penalty_advice, operator, dept_name, create_time)
+        values
+            (#{templateId}, #{docType}, #{title}, #{inputJson}, #{generatedContent}, #{penaltyAdvice}, #{operator}, #{deptName}, now())
+    </insert>
+
+    <delete id="deleteByPrimaryKey">
+        update jc_report_record set del_flag = '2' where record_id = #{recordId}
+    </delete>
+
+</mapper>
