@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.dashboard.mapper.JcDashboardMapper">
+
+    <!-- 核心指标卡：一条记录，多列子查询 -->
+    <select id="summaryCards" resultType="com.jiancha.biz.dashboard.domain.DashboardCards">
+        SELECT
+            (SELECT COUNT(*) FROM jc_clue WHERE del_flag = '0')                                                             AS clueTotal,
+            (SELECT COUNT(*) FROM jc_clue WHERE del_flag = '0' AND status IN ('0','1','2','3'))                          AS clueProcessing,
+            (SELECT COUNT(*) FROM jc_clue WHERE del_flag = '0' AND status = '4')                                          AS clueDone,
+            (SELECT COUNT(*) FROM jc_clue WHERE del_flag = '0' AND status NOT IN ('4','5')
+                     AND deadline IS NOT NULL AND deadline &lt; CURDATE())                                                 AS clueOverdue,
+            (SELECT COUNT(*) FROM jc_person WHERE del_flag = '0')                                                         AS personTotal,
+            (SELECT COUNT(*) FROM jc_report_record WHERE del_flag = '0')                                                  AS reportTotal,
+            (SELECT COUNT(*) FROM jc_kb_document WHERE del_flag = '0' AND status = '已入库')                             AS kbDocTotal,
+            (SELECT COUNT(*) FROM jc_kb_chunk WHERE del_flag = '0')                                                       AS kbChunkTotal,
+            (SELECT COUNT(*) FROM jc_conflict_declare WHERE del_flag = '0')                                              AS conflictTotal
+    </select>
+
+    <!-- 线索状态分布（映射字典标签） -->
+    <select id="clueByStatus" resultType="com.jiancha.biz.dashboard.domain.NameValue">
+        SELECT COALESCE(d.dict_label, c.status) AS name, COUNT(*) AS value
+        FROM jc_clue c
+        LEFT JOIN sys_dict_data d ON d.dict_type = 'jc_clue_status' AND d.dict_value = c.status
+        WHERE c.del_flag = '0'
+        GROUP BY c.status, d.dict_label
+        ORDER BY c.status
+    </select>
+
+    <!-- 线索来源分布 -->
+    <select id="clueBySource" resultType="com.jiancha.biz.dashboard.domain.NameValue">
+        SELECT COALESCE(d.dict_label, c.source_type) AS name, COUNT(*) AS value
+        FROM jc_clue c
+        LEFT JOIN sys_dict_data d ON d.dict_type = 'jc_clue_source' AND d.dict_value = c.source_type
+        WHERE c.del_flag = '0'
+        GROUP BY c.source_type, d.dict_label
+        ORDER BY value DESC
+    </select>
+
+    <!-- 问题类型分布 -->
+    <select id="clueByViolation" resultType="com.jiancha.biz.dashboard.domain.NameValue">
+        SELECT COALESCE(d.dict_label, c.violation_type) AS name, COUNT(*) AS value
+        FROM jc_clue c
+        LEFT JOIN sys_dict_data d ON d.dict_type = 'jc_violation_type' AND d.dict_value = c.violation_type
+        WHERE c.del_flag = '0'
+        GROUP BY c.violation_type, d.dict_label
+        ORDER BY value DESC
+    </select>
+
+    <!-- 线索月度趋势 -->
+    <select id="clueMonthly" resultType="com.jiancha.biz.dashboard.domain.MonthCount">
+        SELECT DATE_FORMAT(create_time, '%Y-%m') AS month, COUNT(*) AS value
+        FROM jc_clue
+        WHERE del_flag = '0' AND create_time IS NOT NULL
+        GROUP BY DATE_FORMAT(create_time, '%Y-%m')
+        ORDER BY month
+    </select>
+
+    <!-- 知识库分类分布（仅已入库文档） -->
+    <select id="kbByCategory" resultType="com.jiancha.biz.dashboard.domain.NameValue">
+        SELECT COALESCE(cat.cat_name, '未分类') AS name, COUNT(*) AS value
+        FROM jc_kb_document d
+        LEFT JOIN jc_kb_category cat ON cat.category_id = d.category_id
+        WHERE d.del_flag = '0' AND d.status = '已入库'
+        GROUP BY d.category_id, cat.cat_name
+        ORDER BY value DESC
+    </select>
+
+    <!-- 文书生成月度趋势 -->
+    <select id="reportMonthly" resultType="com.jiancha.biz.dashboard.domain.MonthCount">
+        SELECT DATE_FORMAT(create_time, '%Y-%m') AS month, COUNT(*) AS value
+        FROM jc_report_record
+        WHERE del_flag = '0' AND create_time IS NOT NULL
+        GROUP BY DATE_FORMAT(create_time, '%Y-%m')
+        ORDER BY month
+    </select>
+
+</mapper>
