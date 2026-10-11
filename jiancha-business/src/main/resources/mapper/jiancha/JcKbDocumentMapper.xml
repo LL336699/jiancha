@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.knowledge.mapper.JcKbDocumentMapper">
+
+    <resultMap id="JcKbDocumentResult" type="com.jiancha.biz.knowledge.domain.JcKbDocument">
+        <id     property="docId"         column="doc_id"/>
+        <result property="docName"       column="doc_name"/>
+        <result property="categoryId"    column="category_id"/>
+        <result property="filePath"      column="file_path"/>
+        <result property="fileHash"      column="file_hash"/>
+        <result property="fileSize"      column="file_size"/>
+        <result property="docType"       column="doc_type"/>
+        <result property="version"       column="version"/>
+        <result property="issuer"        column="issuer"/>
+        <result property="docNo"         column="doc_no"/>
+        <result property="effectiveDate" column="effective_date"/>
+        <result property="expireDate"    column="expire_date"/>
+        <result property="chunkCount"    column="chunk_count"/>
+        <result property="status"        column="status"/>
+        <result property="parseError"    column="parse_error"/>
+        <result property="createBy"      column="create_by"/>
+        <result property="createTime"    column="create_time"/>
+        <result property="updateBy"      column="update_by"/>
+        <result property="updateTime"    column="update_time"/>
+        <result property="remark"        column="remark"/>
+        <!-- 关联展示字段 -->
+        <result property="catName"       column="cat_name"/>
+        <result property="expired"       column="expired"/>
+    </resultMap>
+
+    <sql id="selectDocumentVo">
+        select d.doc_id, d.doc_name, d.category_id, d.file_path, d.file_hash, d.file_size, d.doc_type,
+               d.version, d.issuer, d.doc_no, d.effective_date, d.expire_date, d.chunk_count,
+               d.status, d.parse_error, d.create_by, d.create_time, d.update_by, d.update_time, d.remark,
+               c.cat_name as cat_name,
+               case when d.expire_date is not null and d.expire_date &lt; curdate() then 1 else 0 end as expired
+        from jc_kb_document d
+        left join jc_kb_category c on c.category_id = d.category_id
+    </sql>
+
+    <select id="selectJcKbDocumentList" parameterType="com.jiancha.biz.knowledge.domain.JcKbDocument" resultMap="JcKbDocumentResult">
+        <include refid="selectDocumentVo"/>
+        <where>
+            d.del_flag = '0'
+            <if test="docName != null and docName != ''">
+                and d.doc_name like concat('%', #{docName}, '%')
+            </if>
+            <if test="categoryId != null">
+                and d.category_id = #{categoryId}
+            </if>
+            <if test="docType != null and docType != ''">
+                and d.doc_type = #{docType}
+            </if>
+            <if test="status != null and status != ''">
+                and d.status = #{status}
+            </if>
+            <if test="issuer != null and issuer != ''">
+                and d.issuer like concat('%', #{issuer}, '%')
+            </if>
+            <if test="docNo != null and docNo != ''">
+                and d.doc_no like concat('%', #{docNo}, '%')
+            </if>
+        </where>
+        order by d.create_time desc
+    </select>
+
+    <select id="selectJcKbDocumentById" parameterType="Long" resultMap="JcKbDocumentResult">
+        <include refid="selectDocumentVo"/>
+        where d.doc_id = #{docId} and d.del_flag = '0'
+    </select>
+
+    <select id="selectByFileHash" resultMap="JcKbDocumentResult">
+        <include refid="selectDocumentVo"/>
+        where d.file_hash = #{fileHash} and d.del_flag = '0'
+        limit 1
+    </select>
+
+    <insert id="insertJcKbDocument" parameterType="com.jiancha.biz.knowledge.domain.JcKbDocument" useGeneratedKeys="true" keyProperty="docId">
+        insert into jc_kb_document
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="docName != null and docName != ''">doc_name,</if>
+            <if test="categoryId != null">category_id,</if>
+            <if test="filePath != null">file_path,</if>
+            <if test="fileHash != null">file_hash,</if>
+            <if test="fileSize != null">file_size,</if>
+            <if test="docType != null">doc_type,</if>
+            <if test="version != null">version,</if>
+            <if test="issuer != null">issuer,</if>
+            <if test="docNo != null">doc_no,</if>
+            <if test="effectiveDate != null">effective_date,</if>
+            <if test="expireDate != null">expire_date,</if>
+            <if test="chunkCount != null">chunk_count,</if>
+            <if test="status != null">status,</if>
+            <if test="parseError != null">parse_error,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="remark != null">remark,</if>
+            create_time
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="docName != null and docName != ''">#{docName},</if>
+            <if test="categoryId != null">#{categoryId},</if>
+            <if test="filePath != null">#{filePath},</if>
+            <if test="fileHash != null">#{fileHash},</if>
+            <if test="fileSize != null">#{fileSize},</if>
+            <if test="docType != null">#{docType},</if>
+            <if test="version != null">#{version},</if>
+            <if test="issuer != null">#{issuer},</if>
+            <if test="docNo != null">#{docNo},</if>
+            <if test="effectiveDate != null">#{effectiveDate},</if>
+            <if test="expireDate != null">#{expireDate},</if>
+            <if test="chunkCount != null">#{chunkCount},</if>
+            <if test="status != null">#{status},</if>
+            <if test="parseError != null">#{parseError},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="remark != null">#{remark},</if>
+            sysdate()
+        </trim>
+    </insert>
+
+    <update id="updateJcKbDocument" parameterType="com.jiancha.biz.knowledge.domain.JcKbDocument">
+        update jc_kb_document
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="docName != null and docName != ''">doc_name = #{docName},</if>
+            <if test="categoryId != null">category_id = #{categoryId},</if>
+            <if test="filePath != null">file_path = #{filePath},</if>
+            <if test="fileHash != null">file_hash = #{fileHash},</if>
+            <if test="fileSize != null">file_size = #{fileSize},</if>
+            <if test="docType != null">doc_type = #{docType},</if>
+            <if test="version != null">version = #{version},</if>
+            <if test="issuer != null">issuer = #{issuer},</if>
+            <if test="docNo != null">doc_no = #{docNo},</if>
+            <if test="effectiveDate != null">effective_date = #{effectiveDate},</if>
+            <if test="expireDate != null">expire_date = #{expireDate},</if>
+            <if test="chunkCount != null">chunk_count = #{chunkCount},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="parseError != null">parse_error = #{parseError},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate()
+        </trim>
+        where doc_id = #{docId}
+    </update>
+
+    <update id="updateStatus">
+        update jc_kb_document
+        set status = #{status},
+            chunk_count = #{chunkCount},
+            parse_error = #{parseError},
+            update_time = sysdate()
+        where doc_id = #{docId}
+    </update>
+
+    <update id="deleteJcKbDocumentById" parameterType="Long">
+        update jc_kb_document set del_flag = '2', update_time = sysdate() where doc_id = #{docId}
+    </update>
+
+    <update id="deleteJcKbDocumentByIds" parameterType="String">
+        update jc_kb_document set del_flag = '2', update_time = sysdate() where doc_id in
+        <foreach item="docId" collection="array" open="(" separator="," close=")">
+            #{docId}
+        </foreach>
+    </update>
+
+    <select id="countByStatus" resultType="int">
+        select count(*) from jc_kb_document where del_flag = '0'
+        <if test="status != null and status != ''">
+            and status = #{status}
+        </if>
+    </select>
+
+    <select id="countAll" resultType="int">
+        select count(*) from jc_kb_document where del_flag = '0'
+    </select>
+
+</mapper>

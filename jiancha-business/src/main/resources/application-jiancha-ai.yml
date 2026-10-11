@@ -11,17 +11,23 @@
 # ============================================================
 
 spring:
-  # Chroma 向量库开发期暂不启用（P4 接 RAG 时再打开）；
-  # Ollama 自动装配关闭，避免与 OpenAI 产生两个 ChatModel 导致 ChatClient.Builder 注入失败。
-  # 切换私有化时：provider 改 ollama，并把下面 OllamaChatAutoConfiguration 换成 OpenAiChatAutoConfiguration。
+  # ── 说明 ──
+  # · Ollama 自动装配关闭：避免与 OpenAI 产生两个 ChatModel 导致 ChatClient.Builder 注入失败。
+  # · 【P4 向量检索】默认关闭。原因：Spring AI 的 chroma starter 是<b>客户端</b>，
+  #   需额外部署 Chroma 服务（Docker / 独立进程），与"开发期零依赖"目标冲突。
+  #   当前 P4 采用<b>关键词检索</b>模式（KnowledgeRetriever 自动降级），功能完整可用。
+  #   需要启用向量检索时：
+  #     1) 启动 Chroma 服务（默认 http://127.0.0.1:8000）
+  #     2) 安装 Ollama 并拉取 bge-m3：ollama pull bge-m3
+  #     3) 将下方 model.embedding 改为 ollama，vectorstore.chroma.enabled 改为 true
   autoconfigure:
     exclude:
-      - org.springframework.ai.vectorstore.chroma.autoconfigure.ChromaVectorStoreAutoConfiguration
       - org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration
+      - org.springframework.ai.vectorstore.chroma.autoconfigure.ChromaVectorStoreAutoConfiguration
   ai:
-    # ── chat 交给 openai 自动装配（提供 ChatModel Bean，P2 修复扫描后 AI 模块真正加载，必需）──
-    #    其余未用模型仍关闭，防止空 key 炸装配
+    # ── 各模型能力开关 ──
     model:
+      # Embedding：装好 Ollama + bge-m3 后改为 ollama（届时同时开启下方 chroma）
       embedding: none
       image: none
       audio:
@@ -40,23 +46,31 @@ spring:
           temperature: 0.2
           max-tokens: 4096
 
-    # ── 本地私有化对话模型（公司部署时启用）──
+    # ── 本地 Ollama：对话模型（公司部署时启用）+ Embedding（启用向量检索时用）──
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://127.0.0.1:11434}
       chat:
         options:
           model: ${OLLAMA_CHAT_MODEL:qwen2.5:14b}
           temperature: 0.2
+      embedding:
+        options:
+          # bge-m3：中文语义检索表现优秀，1024 维
+          model: ${OLLAMA_EMBED_MODEL:bge-m3}
 
     # ── 对话记忆（默认内存版；JDBC 持久化待引入对应 starter 后再启用）──
     chat:
       memory:
 
-    # ── 向量库（开发期Chroma 嵌入式；生产期可切 Redis/Milvus）──
+    # ── 向量库：Chroma 客户端（需独立 Chroma 服务，默认关闭）──
+    #   启用步骤见文件顶部说明。关闭时 KnowledgeRetriever 自动降级为关键词检索。
     vectorstore:
       chroma:
         enabled: false
         initialize-schema: true
+        client:
+          host: ${CHROMA_HOST:http://127.0.0.1}
+          port: ${CHROMA_PORT:8000}
 
 # ============================================================
 # 纪检助手业务配置
@@ -69,10 +83,15 @@ jiancha:
     enable-citation: true
     # 记录 AI 调用日志（审计与成本核算）
     enable-audit-log: true
-    # RAG 相似度阈值，低于此值不调模型，直接返回"知识库中无相关规定支撑"
-    rag-similarity-threshold: 3.0
-    # RAG 召回数量
+    # RAG 相似度阈值：低于此值不调模型，直接返回"知识库中无相关规定支撑"
+    # 量纲：关键词命中基础分 0.4，每多命中 1 个关键词 +0.15（上限 1.0）；
+    #       向量命中 = 归一化相似度 × 2.0，双路命中额外 +0.3。
+    # 阈值取 0.4 表示"至少要有 1 个关键词命中，或向量相似度 ≥0.2"
+    rag-similarity-threshold: 0.4
+    # RAG 召回数量（向量/关键词各recall后合并重排，最终保留条数）
     rag-top-k: 8
+    # 关键词召回时 n-gram 提取的最大词数（控制 SQL 规模）
+    rag-keyword-max: 12
     # 流式响应超时（秒）
     stream-timeout: 120
     # 单次上传最大尺寸（MB）

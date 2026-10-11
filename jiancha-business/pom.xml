@@ -30,6 +30,12 @@
             <artifactId>ruoyi-common</artifactId>
         </dependency>
 
+        <!-- Web MVC：SseEmitter（SSE 流式问答）等，ruoyi-common 仅传递了 spring-web -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webmvc</artifactId>
+        </dependency>
+
         <!-- 持久层：MyBatis + PageHelper（经ruoyi-common 传递） -->
         <dependency>
             <groupId>com.github.pagehelper</groupId>

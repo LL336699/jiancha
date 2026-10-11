@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.knowledge.mapper.JcKbChunkMapper">
+
+    <resultMap id="JcKbChunkResult" type="com.jiancha.biz.knowledge.domain.JcKbChunk">
+        <id     property="chunkId"     column="chunk_id"/>
+        <result property="docId"       column="doc_id"/>
+        <result property="chunkIndex"  column="chunk_index"/>
+        <result property="content"     column="content"/>
+        <result property="contentHash" column="content_hash"/>
+        <result property="pageNo"      column="page_no"/>
+        <result property="clauseNo"    column="clause_no"/>
+        <result property="charStart"   column="char_start"/>
+        <result property="charEnd"     column="char_end"/>
+        <result property="createBy"    column="create_by"/>
+        <result property="createTime"  column="create_time"/>
+        <result property="updateBy"    column="update_by"/>
+        <result property="updateTime"  column="update_time"/>
+        <result property="remark"      column="remark"/>
+        <!-- 关联展示字段 -->
+        <result property="docName"     column="doc_name"/>
+        <result property="docType"     column="doc_type"/>
+        <result property="hitCount"    column="hit_count"/>
+    </resultMap>
+
+    <sql id="selectChunkVo">
+        select k.chunk_id, k.doc_id, k.chunk_index, k.content, k.content_hash, k.page_no,
+               k.clause_no, k.char_start, k.char_end, k.create_by, k.create_time,
+               k.update_by, k.update_time, k.remark,
+               d.doc_name as doc_name, d.doc_type as doc_type
+        from jc_kb_chunk k
+        left join jc_kb_document d on d.doc_id = k.doc_id
+    </sql>
+
+    <select id="selectChunksByDocId" parameterType="Long" resultMap="JcKbChunkResult">
+        <include refid="selectChunkVo"/>
+        where k.doc_id = #{docId} and k.del_flag = '0'
+        order by k.chunk_index
+    </select>
+
+    <select id="selectChunkById" parameterType="Long" resultMap="JcKbChunkResult">
+        <include refid="selectChunkVo"/>
+        where k.chunk_id = #{chunkId} and k.del_flag = '0'
+    </select>
+
+    <select id="selectChunksByIds" resultMap="JcKbChunkResult">
+        <include refid="selectChunkVo"/>
+        where k.del_flag = '0' and k.chunk_id in
+        <foreach item="chunkId" collection="chunkIds" open="(" separator="," close=")">
+            #{chunkId}
+        </foreach>
+    </select>
+
+    <!--
+      关键词检索：与向量检索配合做混合召回。
+      路径：已失效法规强制排除（expire_date < 今天）。
+      匹配：keywords 列表 OR 匹配 content / clause_no，按命中词数降序。
+    -->
+    <select id="searchByKeywords" resultMap="JcKbChunkResult">
+        select k.chunk_id, k.doc_id, k.chunk_index, k.content, k.content_hash, k.page_no,
+               k.clause_no, k.char_start, k.char_end, k.create_by, k.create_time,
+               k.update_by, k.update_time, k.remark,
+               d.doc_name as doc_name, d.doc_type as doc_type,
+               <foreach item="kw" collection="keywords" separator=" + ">
+                   (case when k.content like concat('%', #{kw}, '%')
+                          or k.clause_no like concat('%', #{kw}, '%') then 1 else 0 end)
+               </foreach>
+               as hit_count
+        from jc_kb_chunk k
+        left join jc_kb_document d on d.doc_id = k.doc_id
+        where k.del_flag = '0'
+          and d.del_flag = '0'
+          and d.status = '已入库'
+          and (d.expire_date is null or d.expire_date &gt;= curdate())
+          and (
+          <foreach item="kw" collection="keywords" separator=" or ">
+              k.content like concat('%', #{kw}, '%')
+              or k.clause_no like concat('%', #{kw}, '%')
+          </foreach>
+          )
+        <if test="categoryId != null">
+            and d.category_id = #{categoryId}
+        </if>
+        order by hit_count desc, k.doc_id, k.chunk_index
+        limit #{limit}
+    </select>
+
+    <insert id="batchInsertChunks">
+        insert into jc_kb_chunk
+        (doc_id, chunk_index, content, content_hash, page_no, clause_no, char_start, char_end, create_by, create_time)
+        values
+        <foreach item="item" collection="list" separator=",">
+            (#{item.docId}, #{item.chunkIndex}, #{item.content}, #{item.contentHash},
+             #{item.pageNo}, #{item.clauseNo}, #{item.charStart}, #{item.charEnd},
+             #{item.createBy}, sysdate())
+        </foreach>
+    </insert>
+
+    <update id="deleteChunksByDocId" parameterType="Long">
+        update jc_kb_chunk set del_flag = '2', update_time = sysdate() where doc_id = #{docId}
+    </update>
+
+    <delete id="physicalDeleteByDocId" parameterType="Long">
+        delete from jc_kb_chunk where doc_id = #{docId}
+    </delete>
+
+    <select id="countAll" resultType="int">
+        select count(*) from jc_kb_chunk where del_flag = '0'
+    </select>
+
+</mapper>
