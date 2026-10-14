@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.risk.mapper.JcRiskScanMapper">
+
+    <!-- R01 举报集中反映：近 N 天同一被举报对象（target_name）的举报数 -->
+    <select id="countPetitionByTarget" resultType="java.util.Map">
+        select target_name as name, count(1) as value,
+               group_concat(petition_id order by petition_id) as refs
+        from jc_petition
+        where del_flag = '0' and target_name is not null and target_name &lt;&gt; ''
+          and status &lt;&gt; '7'
+          and create_time &gt;= date_sub(curdate(), interval #{days} day)
+        group by target_name
+        having count(1) &gt;= 1
+        order by value desc
+    </select>
+
+    <!-- R02 整改超期：超期未销号问题按责任部门聚合 -->
+    <select id="countOverdueIssueByDept" resultType="java.util.Map">
+        select d.dept_id as id, d.dept_name as name, count(1) as value,
+               group_concat(i.issue_no order by i.issue_no) as refs
+        from jc_rectify_issue i
+        join sys_dept d on d.dept_id = i.target_dept_id
+        where i.del_flag = '0' and i.status in ('0','1','2')
+          and i.deadline is not null and i.deadline &lt; curdate()
+        group by d.dept_id, d.dept_name
+        order by value desc
+    </select>
+
+    <!-- R03 整改回头看不通过：按责任部门聚合 -->
+    <select id="countRevisitFailByDept" resultType="java.util.Map">
+        select d.dept_id as id, d.dept_name as name, count(1) as value,
+               group_concat(i.issue_no order by i.issue_no) as refs
+        from jc_rectify_review r
+        join jc_rectify_issue i on i.issue_id = r.issue_id
+        join sys_dept d on d.dept_id = i.target_dept_id
+        where r.review_type = '2' and r.result = '0'
+        group by d.dept_id, d.dept_name
+        order by value desc
+    </select>
+
+    <!-- R04 线索超期未办结：按承办部门聚合 -->
+    <select id="countOverdueClueByDept" resultType="java.util.Map">
+        select d.dept_id as id, d.dept_name as name, count(1) as value,
+               group_concat(c.clue_no order by c.clue_no) as refs
+        from jc_clue c
+        join sys_dept d on d.dept_id = c.dept_id
+        where c.del_flag = '0' and c.status not in ('4','5')
+          and c.deadline is not null and c.deadline &lt; curdate()
+        group by d.dept_id, d.dept_name
+        order by value desc
+    </select>
+
+    <!-- R05 利益冲突申报存疑：按申报人聚合（注意本表删除标记为 '2'） -->
+    <select id="countConflictSuspectByPerson" resultType="java.util.Map">
+        select p.person_id as id, p.name as name, count(1) as value,
+               group_concat(cd.declare_id order by cd.declare_id) as refs
+        from jc_conflict_declare cd
+        join jc_person p on p.person_id = cd.person_id
+        where cd.del_flag = '0' and cd.status = '存疑'
+        group by p.person_id, p.name
+        order by value desc
+    </select>
+
+    <!-- R06 岗位高风险：岗位模型权重合计（封顶 100） -->
+    <select id="sumPositionWeight" resultType="java.util.Map">
+        select position_name as name, least(sum(weight), 100) as value,
+               group_concat(factor_name order by factor_code) as refs
+        from jc_risk_model
+        where status = '0'
+        group by position_name
+        order by value desc
+    </select>
+
+    <select id="selectMaxNoByPrefix" resultType="String">
+        select max(alert_no) from jc_risk_alert where alert_no like concat(#{prefix}, '%')
+    </select>
+
+</mapper>

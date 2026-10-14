@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.risk.mapper.JcRiskAlertMapper">
+
+    <resultMap id="JcRiskAlertResult" type="com.jiancha.biz.risk.domain.JcRiskAlert">
+        <id     property="alertId"       column="alert_id"/>
+        <result property="alertNo"       column="alert_no"/>
+        <result property="ruleId"        column="rule_id"/>
+        <result property="ruleCode"      column="rule_code"/>
+        <result property="ruleName"      column="rule_name"/>
+        <result property="objectType"    column="object_type"/>
+        <result property="objectId"      column="object_id"/>
+        <result property="objectName"    column="object_name"/>
+        <result property="alertLevel"    column="alert_level"/>
+        <result property="score"         column="score"/>
+        <result property="evidence"      column="evidence"/>
+        <result property="status"        column="status"/>
+        <result property="verifyOpinion" column="verify_opinion"/>
+        <result property="verifyBy"      column="verify_by"/>
+        <result property="verifyTime"    column="verify_time"/>
+        <result property="issueId"       column="issue_id"/>
+        <result property="createBy"      column="create_by"/>
+        <result property="createTime"    column="create_time"/>
+        <result property="updateBy"      column="update_by"/>
+        <result property="updateTime"    column="update_time"/>
+        <result property="remark"        column="remark"/>
+        <!-- 关联展示字段 -->
+        <result property="issueNo"       column="issue_no"/>
+    </resultMap>
+
+    <sql id="selectAlertJoin">
+        select a.alert_id, a.alert_no, a.rule_id, a.rule_code, a.rule_name,
+               a.object_type, a.object_id, a.object_name, a.alert_level, a.score, a.evidence,
+               a.status, a.verify_opinion, a.verify_by, a.verify_time, a.issue_id,
+               a.create_by, a.create_time, a.update_by, a.update_time, a.remark,
+               i.issue_no as issue_no
+        from jc_risk_alert a
+        left join jc_rectify_issue i on i.issue_id = a.issue_id
+    </sql>
+
+    <select id="selectJcRiskAlertList" parameterType="com.jiancha.biz.risk.domain.JcRiskAlert" resultMap="JcRiskAlertResult">
+        <include refid="selectAlertJoin"/>
+        <where>
+            a.del_flag = '0'
+            <if test="alertNo != null and alertNo != ''">
+                and a.alert_no like concat('%', #{alertNo}, '%')
+            </if>
+            <if test="ruleCode != null and ruleCode != ''">
+                and a.rule_code = #{ruleCode}
+            </if>
+            <if test="objectType != null and objectType != ''">
+                and a.object_type = #{objectType}
+            </if>
+            <if test="objectName != null and objectName != ''">
+                and a.object_name like concat('%', #{objectName}, '%')
+            </if>
+            <if test="alertLevel != null and alertLevel != ''">
+                and a.alert_level = #{alertLevel}
+            </if>
+            <if test="status != null and status != ''">
+                and a.status = #{status}
+            </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and date_format(a.create_time, '%Y%m%d') &gt;= date_format(#{params.beginTime}, '%Y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and date_format(a.create_time, '%Y%m%d') &lt;= date_format(#{params.endTime}, '%Y%m%d')
+            </if>
+        </where>
+        order by
+            case a.alert_level when '2' then 0 when '1' then 1 else 2 end,
+            a.score desc,
+            a.create_time desc
+    </select>
+
+    <select id="selectJcRiskAlertByAlertId" parameterType="Long" resultMap="JcRiskAlertResult">
+        <include refid="selectAlertJoin"/>
+        where a.alert_id = #{alertId}
+    </select>
+
+    <select id="countOpenByRuleAndObject" resultType="java.lang.Integer">
+        select count(1) from jc_risk_alert
+        where del_flag = '0' and rule_id = #{ruleId} and object_type = #{objectType}
+          and status in ('0','1')
+        <choose>
+            <when test="objectId != null">
+                and object_id = #{objectId}
+            </when>
+            <otherwise>
+                and (object_id is null or object_id = 0) and object_name = #{objectName}
+            </otherwise>
+        </choose>
+    </select>
+
+    <insert id="insertJcRiskAlert" parameterType="com.jiancha.biz.risk.domain.JcRiskAlert" useGeneratedKeys="true" keyProperty="alertId">
+        insert into jc_risk_alert (alert_no, rule_id, rule_code, rule_name,
+                                   object_type, object_id, object_name, alert_level, score, evidence,
+                                   status, remark, create_by, create_time)
+        values (#{alertNo}, #{ruleId}, #{ruleCode}, #{ruleName},
+                #{objectType}, #{objectId}, #{objectName}, #{alertLevel}, #{score}, #{evidence},
+                #{status}, #{remark}, #{createBy}, sysdate())
+    </insert>
+
+    <update id="updateJcRiskAlert" parameterType="com.jiancha.biz.risk.domain.JcRiskAlert">
+        update jc_risk_alert
+        <set>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="verifyOpinion != null">verify_opinion = #{verifyOpinion},</if>
+            <if test="verifyBy != null and verifyBy != ''">verify_by = #{verifyBy},</if>
+            <if test="verifyTime != null">verify_time = #{verifyTime},</if>
+            <if test="issueId != null">issue_id = #{issueId},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where alert_id = #{alertId}
+    </update>
+
+    <!-- ==================== 统计（SQL 层聚合，口径统一在后端） ==================== -->
+
+    <select id="statCounts" resultType="java.util.Map">
+        select
+            count(1) as total,
+            sum(case when status = '0' then 1 else 0 end) as pending,
+            sum(case when status = '1' then 1 else 0 end) as verifying,
+            sum(case when status = '2' then 1 else 0 end) as confirmed,
+            sum(case when status = '3' then 1 else 0 end) as excluded,
+            sum(case when alert_level = '2' and status in ('0','1') then 1 else 0 end) as highOpen
+        from jc_risk_alert where del_flag = '0'
+    </select>
+
+    <select id="statByLevel" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_risk_alert a
+        left join sys_dict_data dd on dd.dict_type = 'jc_risk_alert_level' and dd.dict_value = a.alert_level
+        where a.del_flag = '0'
+        group by a.alert_level, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statByStatus" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_risk_alert a
+        left join sys_dict_data dd on dd.dict_type = 'jc_risk_alert_status' and dd.dict_value = a.status
+        where a.del_flag = '0'
+        group by a.status, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statByRule" resultType="java.util.Map">
+        select a.rule_name as name, count(1) as value
+        from jc_risk_alert a
+        where a.del_flag = '0'
+        group by a.rule_id, a.rule_name
+        order by value desc
+    </select>
+
+    <select id="statMonthlyTrend" resultType="java.util.Map">
+        select date_format(a.create_time, '%Y-%m') as name, count(1) as value
+        from jc_risk_alert a
+        where a.del_flag = '0' and a.create_time &gt;= date_sub(curdate(), interval 11 month)
+        group by date_format(a.create_time, '%Y-%m')
+        order by name
+    </select>
+
+    <select id="statDeptView" resultType="java.util.Map">
+        select d.dept_name as name, count(1) as value
+        from jc_risk_alert a
+        join sys_dept d on d.dept_id = a.object_id
+        where a.del_flag = '0' and a.object_type = '1' and a.status in ('0','1')
+        group by a.object_id, d.dept_name
+        order by value desc
+        limit 10
+    </select>
+
+    <select id="statPersonView" resultType="java.util.Map">
+        select a.object_name as name, count(1) as value
+        from jc_risk_alert a
+        where a.del_flag = '0' and a.object_type = '0' and a.status in ('0','1')
+        group by a.object_name
+        order by value desc
+        limit 10
+    </select>
+
+</mapper>
