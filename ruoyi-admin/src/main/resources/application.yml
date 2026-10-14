@@ -13,6 +13,19 @@ ruoyi:
   # 验证码类型 math 数字计算 char 字符验证
   captchaType: math
 
+# 纪检监察业务配置（jiancha-business 模块）
+jiancha:
+  petition:
+    # 举报人敏感字段 AES-GCM 加密密钥（经 SHA-256 派生为 256 位）
+    # 生产环境必须用环境变量 JIANCHA_CRYPTO_KEY 注入强随机值，切勿沿用默认值
+    crypto-key: ${JIANCHA_CRYPTO_KEY:jiancha-default-crypto-key-change-me}
+    # 回执码检索胡椒值（与 crypto-key 独立；同时改这两个值才会导致历史举报不可解密/不可查询）
+    receipt-pepper: ${JIANCHA_RECEIPT_PEPPER:jiancha-default-receipt-pepper-change-me}
+    rate-limit:
+      # 举报箱限流窗口（秒）与窗口内最大提交次数（单IP）
+      window-seconds: 60
+      max-requests: 5
+
 # 开发环境配置
 server:
   # 服务器的HTTP端口，默认为8080

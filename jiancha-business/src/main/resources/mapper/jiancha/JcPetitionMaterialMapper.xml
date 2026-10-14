@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.petition.mapper.JcPetitionMaterialMapper">
+
+    <resultMap id="JcPetitionMaterialResult" type="com.jiancha.biz.petition.domain.JcPetitionMaterial">
+        <id     property="materialId"   column="material_id"/>
+        <result property="petitionId"   column="petition_id"/>
+        <result property="fileName"     column="file_name"/>
+        <result property="filePath"     column="file_path"/>
+        <result property="fileSize"     column="file_size"/>
+        <result property="uploaderType" column="uploader_type"/>
+        <result property="createTime"   column="create_time"/>
+    </resultMap>
+
+    <select id="selectMaterialByPetitionId" parameterType="Long" resultMap="JcPetitionMaterialResult">
+        select material_id, petition_id, file_name, file_path, file_size, uploader_type, create_time
+        from jc_petition_material
+        where petition_id = #{petitionId}
+        order by create_time desc
+    </select>
+
+    <insert id="insertMaterial" parameterType="com.jiancha.biz.petition.domain.JcPetitionMaterial" useGeneratedKeys="true" keyProperty="materialId">
+        insert into jc_petition_material (petition_id, file_name, file_path, file_size, uploader_type, create_by, create_time)
+        values (#{petitionId}, #{fileName}, #{filePath}, #{fileSize}, #{uploaderType}, #{createBy}, sysdate())
+    </insert>
+
+    <delete id="deleteMaterialByMaterialId" parameterType="Long">
+        delete from jc_petition_material where material_id = #{materialId}
+    </delete>
+
+    <delete id="deleteMaterialByPetitionId" parameterType="Long">
+        delete from jc_petition_material where petition_id = #{petitionId}
+    </delete>
+
+</mapper>

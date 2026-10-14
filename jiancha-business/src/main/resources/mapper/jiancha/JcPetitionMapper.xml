@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.petition.mapper.JcPetitionMapper">
+
+    <!--
+      注意（踩坑记录）：del_flag 只作为查询过滤条件，不映射进实体
+      （BaseEntity 无 delFlag 字段，映射后取数会抛 no setter）。
+    -->
+
+    <resultMap id="JcPetitionResult" type="com.jiancha.biz.petition.domain.JcPetition">
+        <id     property="petitionId"      column="petition_id"/>
+        <result property="receiptCode"     column="receipt_code"/>
+        <result property="receiptLookup"   column="receipt_lookup"/>
+        <result property="receiptHash"     column="receipt_hash"/>
+        <result property="title"           column="title"/>
+        <result property="content"         column="content"/>
+        <result property="channel"         column="channel"/>
+        <result property="category"        column="category"/>
+        <result property="anonymousFlag"   column="anonymous_flag"/>
+        <result property="reporterName"    column="reporter_name"/>
+        <result property="reporterPhone"   column="reporter_phone"/>
+        <result property="reporterIdcard"  column="reporter_idcard"/>
+        <result property="targetName"      column="target_name"/>
+        <result property="targetDept"      column="target_dept"/>
+        <result property="amount"          column="amount"/>
+        <result property="status"          column="status"/>
+        <result property="warnLevel"       column="warn_level"/>
+        <result property="handleDeadline"  column="handle_deadline"/>
+        <result property="clueId"          column="clue_id"/>
+        <result property="feedback"        column="feedback"/>
+        <result property="createBy"        column="create_by"/>
+        <result property="createTime"      column="create_time"/>
+        <result property="updateBy"        column="update_by"/>
+        <result property="updateTime"      column="update_time"/>
+        <result property="remark"          column="remark"/>
+        <!-- 关联展示字段 -->
+        <result property="clueNo"          column="clue_no"/>
+        <result property="remainHours"     column="remain_hours"/>
+    </resultMap>
+
+    <!-- 列表专用结果集：不含 content 与三个敏感加密列（加密列不进列表，防批量泄露） -->
+    <resultMap id="JcPetitionListResult" type="com.jiancha.biz.petition.domain.JcPetition">
+        <id     property="petitionId"      column="petition_id"/>
+        <result property="title"           column="title"/>
+        <result property="channel"         column="channel"/>
+        <result property="category"        column="category"/>
+        <result property="anonymousFlag"   column="anonymous_flag"/>
+        <result property="targetName"      column="target_name"/>
+        <result property="targetDept"      column="target_dept"/>
+        <result property="amount"          column="amount"/>
+        <result property="status"          column="status"/>
+        <result property="warnLevel"       column="warn_level"/>
+        <result property="handleDeadline"  column="handle_deadline"/>
+        <result property="clueId"          column="clue_id"/>
+        <result property="feedback"        column="feedback"/>
+        <result property="createBy"        column="create_by"/>
+        <result property="createTime"      column="create_time"/>
+        <result property="updateBy"        column="update_by"/>
+        <result property="updateTime"      column="update_time"/>
+        <result property="remark"          column="remark"/>
+        <result property="clueNo"          column="clue_no"/>
+        <result property="remainHours"     column="remain_hours"/>
+    </resultMap>
+
+    <sql id="selectPetitionJoin">
+        select p.petition_id, p.receipt_lookup, p.receipt_hash, p.title, p.content,
+               p.channel, p.category, p.anonymous_flag,
+               p.reporter_name, p.reporter_phone, p.reporter_idcard,
+               p.target_name, p.target_dept, p.amount, p.status, p.warn_level, p.handle_deadline,
+               p.clue_id, p.feedback,
+               p.create_by, p.create_time, p.update_by, p.update_time, p.remark,
+               c.clue_no as clue_no,
+               case when p.handle_deadline is null then null
+                    else timestampdiff(hour, now(), p.handle_deadline) end as remain_hours
+        from jc_petition p
+        left join jc_clue c on c.clue_id = p.clue_id
+    </sql>
+
+    <!-- 列表专用列：剔除 content 与三个加密敏感列 -->
+    <sql id="selectPetitionListCols">
+        select p.petition_id, p.title,
+               p.channel, p.category, p.anonymous_flag,
+               p.target_name, p.target_dept, p.amount, p.status, p.warn_level, p.handle_deadline,
+               p.clue_id, p.feedback,
+               p.create_by, p.create_time, p.update_by, p.update_time, p.remark,
+               c.clue_no as clue_no,
+               case when p.handle_deadline is null then null
+                    else timestampdiff(hour, now(), p.handle_deadline) end as remain_hours
+        from jc_petition p
+        left join jc_clue c on c.clue_id = p.clue_id
+    </sql>
+
+    <!-- 回执码检索：只取公开安全列，敏感列与哈希列不进结果（哈希另走专用查询） -->
+    <select id="selectByReceiptLookup" resultMap="JcPetitionResult">
+        select p.petition_id, p.title, p.channel, p.category, p.anonymous_flag,
+               p.target_name, p.target_dept, p.amount, p.status, p.warn_level, p.handle_deadline,
+               p.feedback, p.create_time, p.receipt_hash
+        from jc_petition p
+        where p.receipt_lookup = #{receiptLookup} and p.del_flag = '0'
+    </select>
+
+    <select id="selectJcPetitionList" parameterType="com.jiancha.biz.petition.domain.JcPetition" resultMap="JcPetitionListResult">
+        <include refid="selectPetitionListCols"/>
+        <where>
+            p.del_flag = '0'
+            <if test="title != null and title != ''">
+                and p.title like concat('%', #{title}, '%')
+            </if>
+            <if test="category != null and category != ''">
+                and p.category = #{category}
+            </if>
+            <if test="channel != null and channel != ''">
+                and p.channel = #{channel}
+            </if>
+            <if test="status != null and status != ''">
+                and p.status = #{status}
+            </if>
+            <if test="warnLevel != null and warnLevel != ''">
+                and p.warn_level = #{warnLevel}
+            </if>
+            <if test="anonymousFlag != null and anonymousFlag != ''">
+                and p.anonymous_flag = #{anonymousFlag}
+            </if>
+            <if test="targetName != null and targetName != ''">
+                and p.target_name like concat('%', #{targetName}, '%')
+            </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and date_format(p.create_time, '%Y%m%d') &gt;= date_format(#{params.beginTime}, '%Y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and date_format(p.create_time, '%Y%m%d') &lt;= date_format(#{params.endTime}, '%Y%m%d')
+            </if>
+        </where>
+        order by
+            case when p.status in ('6','7') then 1 else 0 end,
+            case p.warn_level when '红灯' then 0 when '黄灯' then 1 else 2 end,
+            p.handle_deadline asc,
+            p.create_time desc
+    </select>
+
+    <select id="selectJcPetitionByPetitionId" parameterType="Long" resultMap="JcPetitionResult">
+        <include refid="selectPetitionJoin"/>
+        where p.petition_id = #{petitionId}
+    </select>
+
+    <insert id="insertJcPetition" parameterType="com.jiancha.biz.petition.domain.JcPetition" useGeneratedKeys="true" keyProperty="petitionId">
+        insert into jc_petition (
+            <trim suffixOverrides=",">
+                <if test="receiptLookup != null and receiptLookup != ''">receipt_lookup,</if>
+                <if test="receiptHash != null and receiptHash != ''">receipt_hash,</if>
+                <if test="title != null and title != ''">title,</if>
+                <if test="content != null">content,</if>
+                <if test="channel != null and channel != ''">channel,</if>
+                <if test="category != null and category != ''">category,</if>
+                <if test="anonymousFlag != null and anonymousFlag != ''">anonymous_flag,</if>
+                <if test="reporterName != null and reporterName != ''">reporter_name,</if>
+                <if test="reporterPhone != null and reporterPhone != ''">reporter_phone,</if>
+                <if test="reporterIdcard != null and reporterIdcard != ''">reporter_idcard,</if>
+                <if test="targetName != null and targetName != ''">target_name,</if>
+                <if test="targetDept != null and targetDept != ''">target_dept,</if>
+                <if test="amount != null">amount,</if>
+                <if test="status != null and status != ''">status,</if>
+                <if test="warnLevel != null">warn_level,</if>
+                <if test="handleDeadline != null">handle_deadline,</if>
+                <if test="feedback != null">feedback,</if>
+                <if test="remark != null">remark,</if>
+                create_by, create_time
+            </trim>
+        ) values (
+            <trim suffixOverrides=",">
+                <if test="receiptLookup != null and receiptLookup != ''">#{receiptLookup},</if>
+                <if test="receiptHash != null and receiptHash != ''">#{receiptHash},</if>
+                <if test="title != null and title != ''">#{title},</if>
+                <if test="content != null">#{content},</if>
+                <if test="channel != null and channel != ''">#{channel},</if>
+                <if test="category != null and category != ''">#{category},</if>
+                <if test="anonymousFlag != null and anonymousFlag != ''">#{anonymousFlag},</if>
+                <if test="reporterName != null and reporterName != ''">#{reporterName},</if>
+                <if test="reporterPhone != null and reporterPhone != ''">#{reporterPhone},</if>
+                <if test="reporterIdcard != null and reporterIdcard != ''">#{reporterIdcard},</if>
+                <if test="targetName != null and targetName != ''">#{targetName},</if>
+                <if test="targetDept != null and targetDept != ''">#{targetDept},</if>
+                <if test="amount != null">#{amount},</if>
+                <if test="status != null and status != ''">#{status},</if>
+                <if test="warnLevel != null">#{warnLevel},</if>
+                <if test="handleDeadline != null">#{handleDeadline},</if>
+                <if test="feedback != null">#{feedback},</if>
+                <if test="remark != null">#{remark},</if>
+                #{createBy}, sysdate()
+            </trim>
+        )
+    </insert>
+
+    <update id="updateJcPetition" parameterType="com.jiancha.biz.petition.domain.JcPetition">
+        update jc_petition
+        <set>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="warnLevel != null">warn_level = #{warnLevel},</if>
+            <if test="handleDeadline != null">handle_deadline = #{handleDeadline},</if>
+            <if test="clueId != null">clue_id = #{clueId},</if>
+            <if test="feedback != null">feedback = #{feedback},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where petition_id = #{petitionId}
+    </update>
+
+    <update id="updateWarnLevel">
+        update jc_petition set warn_level = #{warnLevel} where petition_id = #{petitionId}
+    </update>
+
+    <delete id="deleteJcPetitionByPetitionId" parameterType="Long">
+        update jc_petition set del_flag = '1' where petition_id = #{petitionId}
+    </delete>
+
+    <select id="selectActivePetitions" resultMap="JcPetitionResult">
+        <include refid="selectPetitionJoin"/>
+        where p.del_flag = '0' and p.status not in ('6','7') and p.handle_deadline is not null
+        order by p.handle_deadline asc
+    </select>
+
+    <select id="selectRecentByTarget" resultMap="JcPetitionListResult">
+        <include refid="selectPetitionListCols"/>
+        where p.del_flag = '0' and p.target_name = #{targetName}
+          and p.create_time &gt;= #{since} and p.status &lt;&gt; '7'
+        order by p.create_time desc
+    </select>
+
+    <!-- ==================== 统计（SQL 层聚合，口径统一在后端） ==================== -->
+
+    <select id="statCounts" resultType="java.util.Map">
+        select
+            count(1) as total,
+            sum(case when status = '0' then 1 else 0 end) as pending,
+            sum(case when status in ('1','2','3','4') then 1 else 0 end) as handling,
+            sum(case when status in ('5','6','7') then 1 else 0 end) as finished,
+            sum(case when warn_level = '红灯' then 1 else 0 end) as overdue
+        from jc_petition where del_flag = '0'
+    </select>
+
+    <select id="statAvgHandleHours" resultType="java.lang.Double">
+        select avg(timestampdiff(hour, ta.create_time, tf.min_finish))
+        from jc_petition p
+        join jc_petition_trace ta
+             on ta.petition_id = p.petition_id and ta.action = 'accept'
+        join (
+            select petition_id, min(create_time) as min_finish
+            from jc_petition_trace
+            where action in ('feedback','archive')
+            group by petition_id
+        ) tf on tf.petition_id = p.petition_id
+        where p.del_flag = '0'
+    </select>
+
+    <select id="statByStatus" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_petition p
+        left join sys_dict_data dd on dd.dict_type = 'jc_petition_status' and dd.dict_value = p.status
+        where p.del_flag = '0'
+        group by p.status, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statByCategory" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_petition p
+        left join sys_dict_data dd on dd.dict_type = 'jc_petition_category' and dd.dict_value = p.category
+        where p.del_flag = '0'
+        group by p.category, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statByChannel" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_petition p
+        left join sys_dict_data dd on dd.dict_type = 'jc_petition_channel' and dd.dict_value = p.channel
+        where p.del_flag = '0'
+        group by p.channel, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statMonthlyTrend" resultType="java.util.Map">
+        select date_format(p.create_time, '%Y-%m') as name, count(1) as value
+        from jc_petition p
+        where p.del_flag = '0' and p.create_time &gt;= date_sub(curdate(), interval 11 month)
+        group by date_format(p.create_time, '%Y-%m')
+        order by name
+    </select>
+
+</mapper>

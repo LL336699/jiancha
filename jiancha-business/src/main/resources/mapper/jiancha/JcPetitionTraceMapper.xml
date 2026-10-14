@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.petition.mapper.JcPetitionTraceMapper">
+
+    <resultMap id="JcPetitionTraceResult" type="com.jiancha.biz.petition.domain.JcPetitionTrace">
+        <id     property="traceId"      column="trace_id"/>
+        <result property="petitionId"   column="petition_id"/>
+        <result property="action"       column="action"/>
+        <result property="actionDesc"   column="action_desc"/>
+        <result property="fromStatus"   column="from_status"/>
+        <result property="toStatus"     column="to_status"/>
+        <result property="operator"     column="operator"/>
+        <result property="createTime"   column="create_time"/>
+    </resultMap>
+
+    <select id="selectTraceByPetitionId" parameterType="Long" resultMap="JcPetitionTraceResult">
+        select trace_id, petition_id, action, action_desc, from_status, to_status, operator, create_time
+        from jc_petition_trace
+        where petition_id = #{petitionId}
+        order by create_time asc, trace_id asc
+    </select>
+
+    <insert id="insertTrace" parameterType="com.jiancha.biz.petition.domain.JcPetitionTrace" useGeneratedKeys="true" keyProperty="traceId">
+        insert into jc_petition_trace (petition_id, action, action_desc, from_status, to_status, operator, create_time)
+        values (#{petitionId}, #{action}, #{actionDesc}, #{fromStatus}, #{toStatus}, #{operator}, sysdate())
+    </insert>
+
+    <delete id="deleteTraceByPetitionId" parameterType="Long">
+        delete from jc_petition_trace where petition_id = #{petitionId}
+    </delete>
+
+</mapper>
