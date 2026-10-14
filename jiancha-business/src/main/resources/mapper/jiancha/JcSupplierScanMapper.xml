@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.supplier.mapper.JcSupplierScanMapper">
+
+    <!--
+      系统比对-关联关系：E1 关联关系（jc_person_relation）中员工申报的关联企业与供应商库匹配。
+      匹配口径：信用代码精确优先（ent_credit_code <> '' 且相等），否则企业名称精确兜底。
+      link_type 归一到字典 jc_supplier_link_type：本人/亲属 + 持股/任职，其余映射兼职取酬/实际控制/其他。
+      注意：档案域各表删除标记为 '2'（0=存在），统一按 del_flag = '0' 过滤。
+    -->
+    <select id="matchFromPersonRelation" resultType="java.util.Map">
+        select s.supplier_id           as supplier_id,
+               s.supplier_name         as supplier_name,
+               pr.person_id            as person_id,
+               p.name                  as person_name,
+               case
+                   when pr.relation_kind = '持股' then concat(if(pr.relation_type = '本人','本人','亲属'),'持股')
+                   when pr.relation_kind = '任职' then concat(if(pr.relation_type = '本人','本人','亲属'),'任职')
+                   when pr.relation_kind in ('兼职取酬','劳务报酬') then '兼职取酬'
+                   when pr.relation_kind = '实际控制' then '实际控制'
+                   else '其他'
+               end                     as link_type,
+               pr.hold_ratio           as hold_ratio,
+               concat('关联关系申报 relation_id=', pr.relation_id,
+                      '（', pr.relation_type, '/', pr.relation_kind, '，来源:', pr.data_source, '）') as evidence,
+               '系统比对'              as source_type
+        from jc_person_relation pr
+        join jc_supplier s
+          on s.del_flag = '0'
+         and (   (pr.ent_credit_code &lt;&gt; '' and pr.ent_credit_code = s.credit_code)
+              or (pr.ent_credit_code = ''  and pr.ent_name &lt;&gt; '' and pr.ent_name = s.supplier_name))
+        left join jc_person p on p.person_id = pr.person_id and p.del_flag = '0'
+        where pr.del_flag = '0'
+          and (pr.ent_name &lt;&gt; '' or pr.ent_credit_code &lt;&gt; '')
+    </select>
+
+    <!--
+      系统比对-利益冲突申报明细：jc_conflict_item 的关联企业与供应商库匹配（口径同上）。
+      只取未删除申报单下的明细；item_type 归一到字典 jc_supplier_link_type。
+    -->
+    <select id="matchFromConflictItem" resultType="java.util.Map">
+        select s.supplier_id           as supplier_id,
+               s.supplier_name         as supplier_name,
+               cd.person_id            as person_id,
+               p.name                  as person_name,
+               case ci.item_type
+                   when '经商办企业' then '本人持股'
+                   when '对外投资'   then '本人持股'
+                   when '关联交易'   then '本人持股'
+                   when '兼职取酬'   then '兼职取酬'
+                   when '劳务报酬'   then '兼职取酬'
+                   when '亲属从业'   then '亲属任职'
+                   else '其他'
+               end                     as link_type,
+               ci.hold_ratio           as hold_ratio,
+               concat('利益冲突申报 declare_id=', cd.declare_id,
+                      ' 明细 item_id=', ci.item_id, '（', ci.item_type, '）') as evidence,
+               '系统比对'              as source_type
+        from jc_conflict_item ci
+        join jc_conflict_declare cd on cd.declare_id = ci.declare_id and cd.del_flag = '0'
+        join jc_supplier s
+          on s.del_flag = '0'
+         and (   (ci.ent_credit_code &lt;&gt; '' and ci.ent_credit_code = s.credit_code)
+              or (ci.ent_credit_code = ''  and ci.ent_name &lt;&gt; '' and ci.ent_name = s.supplier_name))
+        left join jc_person p on p.person_id = cd.person_id and p.del_flag = '0'
+        where ci.del_flag = '0'
+          and (ci.ent_name &lt;&gt; '' or ci.ent_credit_code &lt;&gt; '')
+    </select>
+
+</mapper>

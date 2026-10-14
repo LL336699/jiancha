@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.supplier.mapper.JcSupplierMapper">
+
+    <resultMap id="JcSupplierResult" type="com.jiancha.biz.supplier.domain.JcSupplier">
+        <id     property="supplierId"   column="supplier_id"/>
+        <result property="supplierCode" column="supplier_code"/>
+        <result property="supplierName" column="supplier_name"/>
+        <result property="creditCode"   column="credit_code"/>
+        <result property="category"     column="category"/>
+        <result property="contactName"  column="contact_name"/>
+        <result property="contactPhone" column="contact_phone"/>
+        <result property="contactEmail" column="contact_email"/>
+        <result property="address"      column="address"/>
+        <result property="status"       column="status"/>
+        <result property="admitDate"    column="admit_date"/>
+        <result property="blackUntil"   column="black_until"/>
+        <result property="createBy"     column="create_by"/>
+        <result property="createTime"   column="create_time"/>
+        <result property="updateBy"     column="update_by"/>
+        <result property="updateTime"   column="update_time"/>
+        <result property="remark"       column="remark"/>
+    </resultMap>
+
+    <sql id="selectSupplierVo">
+        select supplier_id, supplier_code, supplier_name, credit_code, category,
+               contact_name, contact_phone, contact_email, address, status,
+               admit_date, black_until,
+               create_by, create_time, update_by, update_time, remark
+        from jc_supplier
+    </sql>
+
+    <select id="selectJcSupplierList" parameterType="com.jiancha.biz.supplier.domain.JcSupplier" resultMap="JcSupplierResult">
+        <include refid="selectSupplierVo"/>
+        <where>
+            del_flag = '0'
+            <if test="supplierName != null and supplierName != ''">
+                and supplier_name like concat('%', #{supplierName}, '%')
+            </if>
+            <if test="supplierCode != null and supplierCode != ''">
+                and supplier_code like concat('%', #{supplierCode}, '%')
+            </if>
+            <if test="creditCode != null and creditCode != ''">
+                and credit_code like concat('%', #{creditCode}, '%')
+            </if>
+            <if test="category != null and category != ''">
+                and category = #{category}
+            </if>
+            <if test="status != null and status != ''">
+                and status = #{status}
+            </if>
+        </where>
+        order by
+            case status when '0' then 0 when '4' then 1 when '3' then 2 when '2' then 3 else 4 end,
+            create_time desc
+    </select>
+
+    <select id="selectJcSupplierBySupplierId" parameterType="Long" resultMap="JcSupplierResult">
+        <include refid="selectSupplierVo"/>
+        where supplier_id = #{supplierId}
+    </select>
+
+    <select id="selectJcSupplierByCode" parameterType="String" resultMap="JcSupplierResult">
+        <include refid="selectSupplierVo"/>
+        where supplier_code = #{supplierCode}
+    </select>
+
+    <select id="selectJcSupplierByCreditCode" parameterType="String" resultMap="JcSupplierResult">
+        <include refid="selectSupplierVo"/>
+        where credit_code = #{creditCode}
+    </select>
+
+    <select id="countByName" parameterType="String" resultType="Integer">
+        select count(1) from jc_supplier where del_flag = '0' and supplier_name = #{supplierName}
+    </select>
+
+    <insert id="insertJcSupplier" parameterType="com.jiancha.biz.supplier.domain.JcSupplier" useGeneratedKeys="true" keyProperty="supplierId">
+        insert into jc_supplier (
+            supplier_code, supplier_name, credit_code, category,
+            contact_name, contact_phone, contact_email, address, status,
+            admit_date, black_until,
+            create_by, create_time, update_by, update_time, remark
+        ) values (
+            #{supplierCode}, #{supplierName}, #{creditCode}, #{category},
+            #{contactName}, #{contactPhone}, #{contactEmail}, #{address}, #{status},
+            #{admitDate}, #{blackUntil},
+            #{createBy}, sysdate(), #{updateBy}, #{updateTime}, #{remark}
+        )
+    </insert>
+
+    <update id="updateJcSupplier" parameterType="com.jiancha.biz.supplier.domain.JcSupplier">
+        update jc_supplier
+        <set>
+            <if test="supplierName != null and supplierName != ''">supplier_name = #{supplierName},</if>
+            <if test="creditCode != null and creditCode != ''">credit_code = #{creditCode},</if>
+            <if test="category != null">category = #{category},</if>
+            <if test="contactName != null">contact_name = #{contactName},</if>
+            <if test="contactPhone != null">contact_phone = #{contactPhone},</if>
+            <if test="contactEmail != null">contact_email = #{contactEmail},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy}, update_time = sysdate()
+        </set>
+        where supplier_id = #{supplierId}
+    </update>
+
+    <update id="deleteJcSupplierBySupplierId" parameterType="Long">
+        update jc_supplier set del_flag = '1', update_by = 'system', update_time = sysdate()
+        where supplier_id = #{supplierId}
+    </update>
+
+    <!-- 准入审查/禁入/拉黑联动：status 必写，admit_date 可空 -->
+    <update id="updateSupplierStatus">
+        update jc_supplier
+        set status = #{status},
+            admit_date = #{admitDate},
+            black_until = null,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where supplier_id = #{supplierId}
+    </update>
+
+    <!-- 恢复正常：必须清空 black_until（通用 update 的 if 会跳过置空） -->
+    <update id="updateSupplierNormal">
+        update jc_supplier
+        set status = #{status},
+            black_until = null,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where supplier_id = #{supplierId}
+    </update>
+
+    <select id="selectMaxCodeByPrefix" parameterType="String" resultType="String">
+        select max(supplier_code) from jc_supplier where supplier_code like concat(#{prefix}, '%')
+    </select>
+
+    <!-- 统计：总量/分状态（一次出行分组） -->
+    <select id="statCounts" resultType="java.util.Map">
+        select count(1) as total,
+               sum(status = '0') as pending,
+               sum(status = '1') as normal,
+               sum(status = '2') as observe,
+               sum(status = '3') as deny,
+               sum(status = '4') as black
+        from jc_supplier
+        where del_flag = '0'
+    </select>
+
+    <select id="statByStatus" resultType="java.util.Map">
+        select status as name, count(1) as value
+        from jc_supplier
+        where del_flag = '0'
+        group by status
+        order by value desc
+    </select>
+
+    <select id="statByCategory" resultType="java.util.Map">
+        select category as name, count(1) as value
+        from jc_supplier
+        where del_flag = '0' and category is not null and category &lt;&gt; ''
+        group by category
+        order by value desc
+    </select>
+
+    <!-- 跨模块只读：sys_config 参数（不依赖 sys 模块 Mapper） -->
+    <select id="selectConfigValue" parameterType="String" resultType="String">
+        select config_value from sys_config where config_key = #{configKey}
+    </select>
+
+</mapper>

@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.supplier.mapper.JcSupplierBlackMapper">
+
+    <resultMap id="JcSupplierBlackResult" type="com.jiancha.biz.supplier.domain.JcSupplierBlack">
+        <id     property="blackId"      column="black_id"/>
+        <result property="supplierId"   column="supplier_id"/>
+        <result property="blackReason"  column="black_reason"/>
+        <result property="blackDate"    column="black_date"/>
+        <result property="blackUntil"   column="black_until"/>
+        <result property="status"       column="status"/>
+        <result property="liftDate"     column="lift_date"/>
+        <result property="liftBy"       column="lift_by"/>
+        <result property="liftOpinion"  column="lift_opinion"/>
+        <result property="createBy"     column="create_by"/>
+        <result property="createTime"   column="create_time"/>
+        <result property="updateBy"     column="update_by"/>
+        <result property="updateTime"   column="update_time"/>
+        <result property="remark"       column="remark"/>
+        <!-- 关联展示字段 -->
+        <result property="supplierName" column="supplier_name"/>
+    </resultMap>
+
+    <sql id="selectBlackJoin">
+        select b.black_id, b.supplier_id, b.black_reason, b.black_date, b.black_until,
+               b.status, b.lift_date, b.lift_by, b.lift_opinion,
+               b.create_by, b.create_time, b.update_by, b.update_time, b.remark,
+               s.supplier_name as supplier_name
+        from jc_supplier_black b
+        left join jc_supplier s on s.supplier_id = b.supplier_id
+    </sql>
+
+    <select id="selectJcSupplierBlackList" parameterType="com.jiancha.biz.supplier.domain.JcSupplierBlack" resultMap="JcSupplierBlackResult">
+        <include refid="selectBlackJoin"/>
+        <where>
+            b.del_flag = '0'
+            <if test="supplierId != null">
+                and b.supplier_id = #{supplierId}
+            </if>
+            <if test="status != null and status != ''">
+                and b.status = #{status}
+            </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and date_format(b.black_date, '%Y%m%d') &gt;= date_format(#{params.beginTime}, '%Y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and date_format(b.black_date, '%Y%m%d') &lt;= date_format(#{params.endTime}, '%Y%m%d')
+            </if>
+        </where>
+        order by
+            case b.status when '0' then 0 else 1 end,
+            b.black_date desc
+    </select>
+
+    <select id="selectJcSupplierBlackByBlackId" parameterType="Long" resultMap="JcSupplierBlackResult">
+        <include refid="selectBlackJoin"/>
+        where b.black_id = #{blackId}
+    </select>
+
+    <select id="selectBySupplierId" parameterType="Long" resultMap="JcSupplierBlackResult">
+        <include refid="selectBlackJoin"/>
+        where b.supplier_id = #{supplierId}
+        order by b.black_date desc
+    </select>
+
+    <select id="selectActiveBySupplierId" parameterType="Long" resultMap="JcSupplierBlackResult">
+        <include refid="selectBlackJoin"/>
+        where b.supplier_id = #{supplierId} and b.status = '0'
+        order by b.black_date desc
+        limit 1
+    </select>
+
+    <insert id="insertJcSupplierBlack" parameterType="com.jiancha.biz.supplier.domain.JcSupplierBlack" useGeneratedKeys="true" keyProperty="blackId">
+        insert into jc_supplier_black (
+            supplier_id, black_reason, black_date, black_until, status,
+            create_by, create_time, update_by, update_time, remark
+        ) values (
+            #{supplierId}, #{blackReason}, #{blackDate}, #{blackUntil}, #{status},
+            #{createBy}, sysdate(), #{updateBy}, #{updateTime}, #{remark}
+        )
+    </insert>
+
+    <update id="updateJcSupplierBlack" parameterType="com.jiancha.biz.supplier.domain.JcSupplierBlack">
+        update jc_supplier_black
+        <set>
+            <if test="blackReason != null">black_reason = #{blackReason},</if>
+            <if test="blackUntil != null">black_until = #{blackUntil},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="liftDate != null">lift_date = #{liftDate},</if>
+            <if test="liftBy != null">lift_by = #{liftBy},</if>
+            <if test="liftOpinion != null">lift_opinion = #{liftOpinion},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy}, update_time = sysdate()
+        </set>
+        where black_id = #{blackId}
+    </update>
+
+    <update id="deleteJcSupplierBlackByBlackId" parameterType="Long">
+        update jc_supplier_black set del_flag = '1', update_by = 'system', update_time = sysdate()
+        where black_id = #{blackId}
+    </update>
+
+    <!-- Quartz：到期且仍生效（black_until 非空且早于今天），逐条解除并联动档案 -->
+    <select id="selectExpiredActive" resultMap="JcSupplierBlackResult">
+        <include refid="selectBlackJoin"/>
+        where b.del_flag = '0' and b.status = '0'
+          and b.black_until is not null and b.black_until &lt; curdate()
+        order by b.black_until asc
+    </select>
+
+    <select id="statMonthlyTrend" resultType="java.util.Map">
+        select date_format(black_date, '%Y-%m') as name, count(1) as value
+        from jc_supplier_black
+        where del_flag = '0'
+          and black_date &gt;= date_sub(curdate(), interval 12 month)
+        group by date_format(black_date, '%Y-%m')
+        order by name
+    </select>
+
+</mapper>

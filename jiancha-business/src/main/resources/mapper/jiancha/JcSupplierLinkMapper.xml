@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.supplier.mapper.JcSupplierLinkMapper">
+
+    <resultMap id="JcSupplierLinkResult" type="com.jiancha.biz.supplier.domain.JcSupplierLink">
+        <id     property="linkId"         column="link_id"/>
+        <result property="supplierId"     column="supplier_id"/>
+        <result property="personId"       column="person_id"/>
+        <result property="personName"     column="person_name"/>
+        <result property="linkType"       column="link_type"/>
+        <result property="holdRatio"      column="hold_ratio"/>
+        <result property="sourceType"     column="source_type"/>
+        <result property="evidence"       column="evidence"/>
+        <result property="verifyStatus"   column="verify_status"/>
+        <result property="handleResult"   column="handle_result"/>
+        <result property="handleTime"     column="handle_time"/>
+        <result property="handleBy"       column="handle_by"/>
+        <result property="handleOpinion"  column="handle_opinion"/>
+        <result property="rectifyIssueId" column="rectify_issue_id"/>
+        <result property="createBy"       column="create_by"/>
+        <result property="createTime"     column="create_time"/>
+        <result property="updateBy"       column="update_by"/>
+        <result property="updateTime"     column="update_time"/>
+        <result property="remark"         column="remark"/>
+        <!-- 关联展示字段 -->
+        <result property="supplierName"   column="supplier_name"/>
+        <result property="issueNo"        column="issue_no"/>
+    </resultMap>
+
+    <sql id="selectLinkJoin">
+        select l.link_id, l.supplier_id, l.person_id, l.person_name, l.link_type, l.hold_ratio,
+               l.source_type, l.evidence, l.verify_status, l.handle_result,
+               l.handle_time, l.handle_by, l.handle_opinion, l.rectify_issue_id,
+               l.create_by, l.create_time, l.update_by, l.update_time, l.remark,
+               s.supplier_name as supplier_name,
+               i.issue_no as issue_no
+        from jc_supplier_link l
+        left join jc_supplier s on s.supplier_id = l.supplier_id
+        left join jc_rectify_issue i on i.issue_id = l.rectify_issue_id
+    </sql>
+
+    <select id="selectJcSupplierLinkList" parameterType="com.jiancha.biz.supplier.domain.JcSupplierLink" resultMap="JcSupplierLinkResult">
+        <include refid="selectLinkJoin"/>
+        <where>
+            l.del_flag = '0'
+            <if test="supplierId != null">
+                and l.supplier_id = #{supplierId}
+            </if>
+            <if test="personId != null">
+                and l.person_id = #{personId}
+            </if>
+            <if test="personName != null and personName != ''">
+                and l.person_name like concat('%', #{personName}, '%')
+            </if>
+            <if test="linkType != null and linkType != ''">
+                and l.link_type = #{linkType}
+            </if>
+            <if test="sourceType != null and sourceType != ''">
+                and l.source_type = #{sourceType}
+            </if>
+            <if test="handleResult != null and handleResult != ''">
+                and l.handle_result = #{handleResult}
+            </if>
+        </where>
+        order by
+            case l.handle_result when '0' then 0 else 1 end,
+            l.create_time desc
+    </select>
+
+    <select id="selectJcSupplierLinkByLinkId" parameterType="Long" resultMap="JcSupplierLinkResult">
+        <include refid="selectLinkJoin"/>
+        where l.link_id = #{linkId}
+    </select>
+
+    <select id="selectBySupplierId" parameterType="Long" resultMap="JcSupplierLinkResult">
+        <include refid="selectLinkJoin"/>
+        where l.supplier_id = #{supplierId}
+        order by l.create_time desc
+    </select>
+
+    <select id="countActiveBySupplierAndPerson" resultType="Integer">
+        select count(1) from jc_supplier_link
+        where del_flag = '0' and supplier_id = #{supplierId} and person_id = #{personId}
+          and link_type = #{linkType} and handle_result &lt;&gt; '4'
+    </select>
+
+    <select id="countAutoBySupplierAndPerson" resultType="Integer">
+        select count(1) from jc_supplier_link
+        where del_flag = '0' and supplier_id = #{supplierId} and person_id = #{personId}
+          and link_type = #{linkType} and source_type = #{sourceType}
+    </select>
+
+    <insert id="insertJcSupplierLink" parameterType="com.jiancha.biz.supplier.domain.JcSupplierLink" useGeneratedKeys="true" keyProperty="linkId">
+        insert into jc_supplier_link (
+            supplier_id, person_id, person_name, link_type, hold_ratio,
+            source_type, evidence, verify_status, handle_result,
+            rectify_issue_id,
+            create_by, create_time, update_by, update_time, remark
+        ) values (
+            #{supplierId}, #{personId}, #{personName}, #{linkType}, #{holdRatio},
+            #{sourceType}, #{evidence}, #{verifyStatus}, #{handleResult},
+            #{rectifyIssueId},
+            #{createBy}, sysdate(), #{updateBy}, #{updateTime}, #{remark}
+        )
+    </insert>
+
+    <update id="updateJcSupplierLink" parameterType="com.jiancha.biz.supplier.domain.JcSupplierLink">
+        update jc_supplier_link
+        <set>
+            <if test="personName != null">person_name = #{personName},</if>
+            <if test="linkType != null">link_type = #{linkType},</if>
+            <if test="holdRatio != null">hold_ratio = #{holdRatio},</if>
+            <if test="sourceType != null">source_type = #{sourceType},</if>
+            <if test="evidence != null">evidence = #{evidence},</if>
+            <if test="verifyStatus != null">verify_status = #{verifyStatus},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy}, update_time = sysdate()
+        </set>
+        where link_id = #{linkId}
+    </update>
+
+    <!-- 处置/转整改专用语句：handle_time/handle_by 必写，opinion 与 issue_id 可空 -->
+    <update id="updateLinkHandle">
+        update jc_supplier_link
+        set handle_result = #{handleResult},
+            verify_status = #{verifyStatus},
+            handle_time = sysdate(),
+            handle_by = #{handleBy},
+            handle_opinion = #{opinion},
+            rectify_issue_id = #{rectifyIssueId},
+            update_by = #{handleBy},
+            update_time = sysdate()
+        where link_id = #{linkId}
+    </update>
+
+    <select id="statCounts" resultType="java.util.Map">
+        select count(1) as total,
+               sum(source_type = '系统比对') as auto,
+               sum(rectify_issue_id is not null) as toRectify,
+               sum(handle_result = '0') as pending
+        from jc_supplier_link
+        where del_flag = '0'
+    </select>
+
+    <select id="statByLinkType" resultType="java.util.Map">
+        select link_type as name, count(1) as value
+        from jc_supplier_link
+        where del_flag = '0' and link_type is not null and link_type &lt;&gt; ''
+        group by link_type
+        order by value desc
+    </select>
+
+    <select id="statTopHitSuppliers" resultType="java.util.Map">
+        select s.supplier_name as name, count(1) as value
+        from jc_supplier_link l
+        join jc_supplier s on s.supplier_id = l.supplier_id
+        where l.del_flag = '0'
+        group by s.supplier_id, s.supplier_name
+        order by value desc
+        limit 10
+    </select>
+
+</mapper>

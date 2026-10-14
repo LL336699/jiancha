@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.supplier.mapper.JcSupplierAgreementMapper">
+
+    <resultMap id="JcSupplierAgreementResult" type="com.jiancha.biz.supplier.domain.JcSupplierAgreement">
+        <id     property="agreementId"   column="agreement_id"/>
+        <result property="supplierId"    column="supplier_id"/>
+        <result property="agreementNo"   column="agreement_no"/>
+        <result property="signDate"      column="sign_date"/>
+        <result property="expireDate"    column="expire_date"/>
+        <result property="fileName"      column="file_name"/>
+        <result property="fileUrl"       column="file_url"/>
+        <result property="status"        column="status"/>
+        <result property="renewCount"    column="renew_count"/>
+        <result property="lastRenewDate" column="last_renew_date"/>
+        <result property="createBy"      column="create_by"/>
+        <result property="createTime"    column="create_time"/>
+        <result property="updateBy"      column="update_by"/>
+        <result property="updateTime"    column="update_time"/>
+        <result property="remark"        column="remark"/>
+        <!-- 关联展示字段 -->
+        <result property="supplierName"  column="supplier_name"/>
+    </resultMap>
+
+    <sql id="selectAgreementJoin">
+        select a.agreement_id, a.supplier_id, a.agreement_no, a.sign_date, a.expire_date,
+               a.file_name, a.file_url, a.status, a.renew_count, a.last_renew_date,
+               a.create_by, a.create_time, a.update_by, a.update_time, a.remark,
+               s.supplier_name as supplier_name
+        from jc_supplier_agreement a
+        left join jc_supplier s on s.supplier_id = a.supplier_id
+    </sql>
+
+    <select id="selectJcSupplierAgreementList" parameterType="com.jiancha.biz.supplier.domain.JcSupplierAgreement" resultMap="JcSupplierAgreementResult">
+        <include refid="selectAgreementJoin"/>
+        <where>
+            a.del_flag = '0'
+            <if test="supplierId != null">
+                and a.supplier_id = #{supplierId}
+            </if>
+            <if test="agreementNo != null and agreementNo != ''">
+                and a.agreement_no like concat('%', #{agreementNo}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                and a.status = #{status}
+            </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and date_format(a.expire_date, '%Y%m%d') &gt;= date_format(#{params.beginTime}, '%Y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and date_format(a.expire_date, '%Y%m%d') &lt;= date_format(#{params.endTime}, '%Y%m%d')
+            </if>
+        </where>
+        order by
+            case a.status when '2' then 0 when '1' then 1 else 2 end,
+            a.expire_date asc
+    </select>
+
+    <select id="selectJcSupplierAgreementByAgreementId" parameterType="Long" resultMap="JcSupplierAgreementResult">
+        <include refid="selectAgreementJoin"/>
+        where a.agreement_id = #{agreementId}
+    </select>
+
+    <select id="selectBySupplierId" parameterType="Long" resultMap="JcSupplierAgreementResult">
+        <include refid="selectAgreementJoin"/>
+        where a.supplier_id = #{supplierId}
+        order by a.sign_date desc
+    </select>
+
+    <select id="selectByAgreementNo" parameterType="String" resultMap="JcSupplierAgreementResult">
+        <include refid="selectAgreementJoin"/>
+        where a.agreement_no = #{agreementNo}
+    </select>
+
+    <insert id="insertJcSupplierAgreement" parameterType="com.jiancha.biz.supplier.domain.JcSupplierAgreement" useGeneratedKeys="true" keyProperty="agreementId">
+        insert into jc_supplier_agreement (
+            supplier_id, agreement_no, sign_date, expire_date,
+            file_name, file_url, status, renew_count, last_renew_date,
+            create_by, create_time, update_by, update_time, remark
+        ) values (
+            #{supplierId}, #{agreementNo}, #{signDate}, #{expireDate},
+            #{fileName}, #{fileUrl}, #{status}, #{renewCount}, #{lastRenewDate},
+            #{createBy}, sysdate(), #{updateBy}, #{updateTime}, #{remark}
+        )
+    </insert>
+
+    <update id="updateJcSupplierAgreement" parameterType="com.jiancha.biz.supplier.domain.JcSupplierAgreement">
+        update jc_supplier_agreement
+        <set>
+            <if test="signDate != null">sign_date = #{signDate},</if>
+            <if test="expireDate != null">expire_date = #{expireDate},</if>
+            <if test="fileName != null">file_name = #{fileName},</if>
+            <if test="fileUrl != null">file_url = #{fileUrl},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy}, update_time = sysdate()
+        </set>
+        where agreement_id = #{agreementId}
+    </update>
+
+    <!-- 续签专用语句：覆盖签署/到期日，renew_count+1，status 回已签署 -->
+    <update id="renewAgreement">
+        update jc_supplier_agreement
+        set sign_date = curdate(),
+            expire_date = #{newExpireDate},
+            status = '0',
+            renew_count = renew_count + 1,
+            last_renew_date = curdate(),
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where agreement_id = #{agreementId}
+    </update>
+
+    <update id="liftAgreement">
+        update jc_supplier_agreement
+        set status = '3',
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where agreement_id = #{agreementId}
+    </update>
+
+    <update id="deleteJcSupplierAgreementByAgreementId" parameterType="Long">
+        update jc_supplier_agreement set del_flag = '1', update_by = 'system', update_time = sysdate()
+        where agreement_id = #{agreementId}
+    </update>
+
+    <select id="selectMaxNoByPrefix" parameterType="String" resultType="String">
+        select max(agreement_no) from jc_supplier_agreement where agreement_no like concat(#{prefix}, '%')
+    </select>
+
+    <!-- Quartz：临期（距到期 ≤ warnDays）/已过期（> expire_date），返回受影响行数（已解除除外） -->
+    <update id="refreshStatus">
+        update jc_supplier_agreement
+        set status = case
+                when expire_date &lt; curdate() then '2'
+                when expire_date &lt;= date_add(curdate(), interval #{warnDays} day) then '1'
+                else '0'
+            end,
+            update_by = 'system',
+            update_time = sysdate()
+        where del_flag = '0' and status &lt;&gt; '3'
+          and status &lt;&gt; case
+                when expire_date &lt; curdate() then '2'
+                when expire_date &lt;= date_add(curdate(), interval #{warnDays} day) then '1'
+                else '0'
+            end
+    </update>
+
+    <select id="statCounts" resultType="java.util.Map">
+        select sum(status in ('0','1')) as active,
+               sum(status = '1') as expiring
+        from jc_supplier_agreement
+        where del_flag = '0'
+    </select>
+
+</mapper>
