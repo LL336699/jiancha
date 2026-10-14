@@ -71,6 +71,11 @@
         order by c.create_time desc
     </select>
 
+    <!-- 轻量参数读取（jiancha.edu.*，不引入 sys 模块依赖） -->
+    <select id="selectConfigValue" resultType="java.lang.String">
+        select config_value from sys_config where config_key = #{key}
+    </select>
+
     <!-- 考生成绩排行（按最好成绩降序） -->
     <select id="examRanking" resultType="java.util.Map">
         select e.person_id as personId,
