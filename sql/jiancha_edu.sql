@@ -167,7 +167,7 @@ CREATE TABLE jc_edu_question (
     create_time DATETIME     DEFAULT NULL            COMMENT '创建时间',
     update_by   VARCHAR(64)  DEFAULT ''              COMMENT '更新者',
     update_time DATETIME     DEFAULT NULL            COMMENT '更新时间',
-    del_flag    CHAR(1)      DEFAULT '2'             COMMENT '删除标记(0正常 2删除)',
+    del_flag    CHAR(1)      DEFAULT '0'             COMMENT '删除标记(0正常 2删除)',
     PRIMARY KEY (question_id),
     KEY idx_question_cat (category, qtype),
     KEY idx_question_status (status)
@@ -270,6 +270,7 @@ CREATE TABLE jc_edu_commitment (
     sign_type   VARCHAR(32)  DEFAULT ''              COMMENT '签收方式',
     sign_time   DATETIME     DEFAULT NULL            COMMENT '签收时间',
     record_type CHAR(1)      DEFAULT '0'             COMMENT '记录类型(0承诺书本体 1签收记录)',
+    parent_id   BIGINT       DEFAULT NULL            COMMENT '父承诺书ID(签收记录指向本体)',
     remark      VARCHAR(500) DEFAULT ''              COMMENT '备注',
     create_by   VARCHAR(64)  DEFAULT ''              COMMENT '创建者',
     create_time DATETIME     DEFAULT NULL            COMMENT '创建时间',
@@ -279,7 +280,7 @@ CREATE TABLE jc_edu_commitment (
     PRIMARY KEY (commit_id),
     KEY idx_commit_type (record_type, status),
     KEY idx_commit_person (person_id),
-    KEY idx_commit_parent (commit_id, person_id)
+    KEY idx_commit_parent (parent_id, person_id)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 COMMENT='廉洁承诺书签收';
 
 -- ------------------------------------------------------------
@@ -294,4 +295,6 @@ UNION ALL SELECT '教育表',     COUNT(1) FROM information_schema.tables WHERE 
 -- ------------------------------------------------------------
 -- 【已有数据时改用以下 ALTER，避免 DROP 丢数据】
 -- ALTER TABLE jc_edu_paper ADD COLUMN duration_min INT DEFAULT 30 COMMENT '考试时长(分钟)' AFTER pass_score;
+-- ALTER TABLE jc_edu_commitment ADD COLUMN parent_id BIGINT DEFAULT NULL COMMENT '父承诺书ID(签收记录指向本体)' AFTER record_type;
+-- UPDATE jc_edu_commitment SET parent_id = commit_id WHERE record_type = '1';
 -- ------------------------------------------------------------

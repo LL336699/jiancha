@@ -134,7 +134,7 @@ public class JcEduCommitmentServiceImpl implements IJcEduCommitmentService {
             return exists;
         }
         JcEduCommitment sign = new JcEduCommitment();
-        sign.setCommitId(commitId);
+        sign.setParentId(commitId);
         sign.setTitle(body.getTitle());
         sign.setPersonId(personId);
         sign.setPersonName(personName);

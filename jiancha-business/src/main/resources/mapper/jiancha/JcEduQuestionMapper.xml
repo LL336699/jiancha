@@ -1,6 +1,40 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.jiancha.biz.edu.mapper.JcEduQuestionMapper">
+
+    <mapper namespace="com.jiancha.biz.edu.mapper.JcEduQuestionMapper">
+    <resultMap id="JcEduQuestionResult" type="com.jiancha.biz.edu.domain.JcEduQuestion">
+        <id     property="questionId" column="question_id"/>
+        <result property="category"  column="category"/>
+        <result property="qtype"     column="qtype"/>
+        <result property="level"     column="level"/>
+        <result property="title"     column="title"/>
+        <result property="options"   column="options"/>
+        <result property="answer"    column="answer"/>
+        <result property="analysis"  column="analysis"/>
+        <result property="score"     column="score"/>
+        <result property="status"    column="status"/>
+        <result property="useCount"  column="use_count"/>
+        <result property="createBy"  column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy"  column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark"    column="remark"/>
+    </resultMap>
+
+    <!-- 列表专用：不含 answer/analysis（防泄题） -->
+    <resultMap id="JcEduQuestionListResult" type="com.jiancha.biz.edu.domain.JcEduQuestion">
+        <id     property="questionId" column="question_id"/>
+        <result property="category"  column="category"/>
+        <result property="qtype"     column="qtype"/>
+        <result property="level"     column="level"/>
+        <result property="title"     column="title"/>
+        <result property="score"     column="score"/>
+        <result property="status"    column="status"/>
+        <result property="useCount"  column="use_count"/>
+        <result property="createBy"  column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="remark"    column="remark"/>
+    </resultMap>
 
     <!-- 列表：不返回 answer/analysis（防泄题，维护端用详情接口看答案） -->
     <sql id="selectQuestionListVo">
@@ -9,7 +43,7 @@
         from jc_edu_question q
     </sql>
 
-    <select id="selectJcEduQuestionList" parameterType="com.jiancha.biz.edu.domain.JcEduQuestion" resultType="com.jiancha.biz.edu.domain.JcEduQuestion">
+    <select id="selectJcEduQuestionList" parameterType="com.jiancha.biz.edu.domain.JcEduQuestion" resultMap="JcEduQuestionListResult">
         <include refid="selectQuestionListVo"/>
         <where>
             q.del_flag = '0'
@@ -32,7 +66,7 @@
         order by q.create_time desc
     </select>
 
-    <select id="selectJcEduQuestionByQuestionId" parameterType="Long" resultType="com.jiancha.biz.edu.domain.JcEduQuestion">
+    <select id="selectJcEduQuestionByQuestionId" parameterType="Long" resultMap="JcEduQuestionResult">
         select q.question_id, q.category, q.qtype, q.level, q.title, q.options, q.answer, q.analysis,
                q.score, q.status, q.use_count,
                q.create_by, q.create_time, q.update_by, q.update_time, q.remark
@@ -40,7 +74,7 @@
         where q.question_id = #{questionId} and q.del_flag = '0'
     </select>
 
-    <select id="selectJcEduQuestionByIds" resultType="com.jiancha.biz.edu.domain.JcEduQuestion">
+    <select id="selectJcEduQuestionByIds" resultMap="JcEduQuestionResult">
         select q.question_id, q.category, q.qtype, q.title, q.options, q.answer, q.analysis, q.score, q.use_count
         from jc_edu_question q
         where q.question_id in
@@ -48,7 +82,7 @@
           and q.del_flag = '0'
     </select>
 
-    <select id="selectRandomByRule" resultType="com.jiancha.biz.edu.domain.JcEduQuestion">
+    <select id="selectRandomByRule" resultMap="JcEduQuestionResult">
         select q.question_id, q.category, q.qtype, q.title, q.options, q.answer, q.analysis, q.score
         from jc_edu_question q
         where q.category = #{category} and q.qtype = #{qtype} and q.status = '0' and q.del_flag = '0'
@@ -63,11 +97,11 @@
     <insert id="insertJcEduQuestion" parameterType="com.jiancha.biz.edu.domain.JcEduQuestion" useGeneratedKeys="true" keyProperty="questionId">
         insert into jc_edu_question (
             category, qtype, level, title, options, answer, analysis, score, status, use_count,
-            create_by, create_time, remark
+            create_by, create_time, remark, del_flag
         ) values (
             #{category}, #{qtype}, #{level}, #{title}, #{options}, #{answer}, #{analysis}, #{score},
             ifnull(#{status}, '0'), ifnull(#{useCount}, 0),
-            #{createBy}, now(), #{remark}
+            #{createBy}, now(), #{remark}, '0'
         )
     </insert>
 

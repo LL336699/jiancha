@@ -1,8 +1,23 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.jiancha.biz.edu.mapper.JcEduPaperQuestionMapper">
 
-    <select id="selectByPaperId" parameterType="Long" resultType="com.jiancha.biz.edu.domain.JcEduPaperQuestion">
+    <mapper namespace="com.jiancha.biz.edu.mapper.JcEduPaperQuestionMapper">
+    <resultMap id="JcEduPaperQuestionResult" type="com.jiancha.biz.edu.domain.JcEduPaperQuestion">
+        <id     property="id"            column="id"/>
+        <result property="paperId"       column="paper_id"/>
+        <result property="questionId"    column="question_id"/>
+        <result property="titleSnapshot" column="title_snapshot"/>
+        <result property="qtype"         column="qtype"/>
+        <result property="score"         column="score"/>
+        <result property="sortNo"        column="sort_no"/>
+        <result property="remark"        column="remark"/>
+        <result property="createBy"      column="create_by"/>
+        <result property="createTime"    column="create_time"/>
+        <result property="updateBy"      column="update_by"/>
+        <result property="updateTime"    column="update_time"/>
+    </resultMap>
+
+    <select id="selectByPaperId" parameterType="Long" resultMap="JcEduPaperQuestionResult">
         select pq.id, pq.paper_id, pq.question_id, pq.title_snapshot, pq.qtype, pq.score, pq.sort_no
         from jc_edu_paper_question pq
         where pq.paper_id = #{paperId}
@@ -10,10 +25,10 @@
     </select>
 
     <insert id="batchInsert">
-        insert into jc_edu_paper_question (paper_id, question_id, title_snapshot, qtype, score, sort_no)
+        insert into jc_edu_paper_question (paper_id, question_id, title_snapshot, qtype, score, sort_no, create_by, create_time, del_flag)
         values
         <foreach collection="list" item="item" separator=",">
-            (#{item.paperId}, #{item.questionId}, #{item.titleSnapshot}, #{item.qtype}, #{item.score}, #{item.sortNo})
+            (#{item.paperId}, #{item.questionId}, #{item.titleSnapshot}, #{item.qtype}, #{item.score}, #{item.sortNo}, 'system', now(), '0')
         </foreach>
     </insert>
 

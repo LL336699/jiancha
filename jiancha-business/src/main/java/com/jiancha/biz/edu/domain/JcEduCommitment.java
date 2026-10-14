@@ -1,7 +1,7 @@
 package com.jiancha.biz.edu.domain;
 
 import jakarta.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import com.ruoyi.common.core.domain.BaseEntity;
 
@@ -50,6 +50,9 @@ public class JcEduCommitment extends BaseEntity {
 
     /** 记录类型（非持久化过滤用：0 承诺书本体 / 1 签收记录） */
     private String recordType;
+
+    /** 父承诺书ID（签收记录指向的承诺书本体 commit_id） */
+    private Long parentId;
 
     public Long getCommitId() {
         return commitId;
@@ -137,5 +140,13 @@ public class JcEduCommitment extends BaseEntity {
 
     public void setRecordType(String recordType) {
         this.recordType = recordType;
+    }
+
+    public Long getParentId() {
+        return parentId;
+    }
+
+    public void setParentId(Long parentId) {
+        this.parentId = parentId;
     }
 }

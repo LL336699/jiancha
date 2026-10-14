@@ -2,16 +2,17 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.jiancha.biz.edu.mapper.JcEduScanMapper">
 
-    <!-- 成绩分布：优(>=90)/良(80-89)/中(60-79)/差(<60) -->
+    <!-- 成绩分布（按得分率：优>=90%/良80-89%/中60-79%/差<60%） -->
     <select id="scoreDistribution" resultType="java.util.Map">
         select case
-                   when e.score >= 90 then '优'
-                   when e.score >= 80 then '良'
-                   when e.score >= 60 then '中'
+                   when e.score * 100.0 / ifnull(p.total_score, 100) >= 90 then '优'
+                   when e.score * 100.0 / ifnull(p.total_score, 100) >= 80 then '良'
+                   when e.score * 100.0 / ifnull(p.total_score, 100) >= 60 then '中'
                    else '差'
                end as grade,
                count(1) as cnt
         from jc_edu_exam e
+        left join jc_edu_paper p on p.paper_id = e.paper_id
         where e.del_flag = '0' and e.status = '1'
         group by grade
         order by cnt desc
@@ -45,14 +46,15 @@
         order by month
     </select>
 
-    <!-- 错题 TopN（按答错次数降序，取试卷题目快照标题） -->
+    <!-- 错题 TopN（按答错次数降序，取该生所在试卷的题目快照标题） -->
     <select id="topWrongQuestions" resultType="java.util.Map">
         select a.question_id as questionId,
-               min(pq.title) as title,
+               min(pq.title_snapshot) as title,
                count(1) as wrongCnt
         from jc_edu_exam_answer a
         left join jc_edu_paper_question pq
                on pq.question_id = a.question_id
+              and pq.paper_id = (select paper_id from jc_edu_exam where exam_id = a.exam_id)
         where a.correct = '0'
         group by a.question_id
         order by wrongCnt desc
@@ -65,7 +67,7 @@
                c.title as title,
                c.scope_type as scopeType,
                (select count(1) from jc_edu_commitment s
-                 where s.commit_id = c.commit_id and s.record_type = '1' and s.status = '1' and s.del_flag = '0') as signedCnt
+                 where s.parent_id = c.commit_id and s.record_type = '1' and s.status = '1' and s.del_flag = '0') as signedCnt
         from jc_edu_commitment c
         where c.record_type = '0' and c.del_flag = '0'
         order by c.create_time desc

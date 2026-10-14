@@ -239,9 +239,17 @@ public class JcEduExamServiceImpl implements IJcEduExamService {
         return abandoned;
     }
 
-    /** 构造开考返回体：试卷信息 + 题目（不含答案与解析） */
+    /** 构造开考返回体：试卷信息 + 题目（不含答案与解析，选项实时下发） */
     private Map<String, Object> examPayload(JcEduExam exam, JcEduPaper paper, boolean created) {
         List<JcEduPaperQuestion> questions = paperQuestionMapper.selectByPaperId(exam.getPaperId());
+        // 选项实时下发（selectJcEduQuestionByIds 不返回 answer，防泄题）
+        List<Long> qids = questions.stream().map(JcEduPaperQuestion::getQuestionId).collect(Collectors.toList());
+        Map<Long, String> optionsMap = new HashMap<>();
+        if (!qids.isEmpty()) {
+            for (JcEduQuestion q : questionMapper.selectJcEduQuestionByIds(qids)) {
+                optionsMap.put(q.getQuestionId(), q.getOptions());
+            }
+        }
         List<Map<String, Object>> items = questions.stream().map(pq -> {
             Map<String, Object> item = new HashMap<>();
             item.put("questionId", pq.getQuestionId());
@@ -249,6 +257,7 @@ public class JcEduExamServiceImpl implements IJcEduExamService {
             item.put("score", pq.getScore());
             item.put("sortNo", pq.getSortNo());
             item.put("title", pq.getTitleSnapshot());
+            item.put("options", optionsMap.getOrDefault(pq.getQuestionId(), ""));
             return item;
         }).collect(Collectors.toList());
         Map<String, Object> result = new HashMap<>();

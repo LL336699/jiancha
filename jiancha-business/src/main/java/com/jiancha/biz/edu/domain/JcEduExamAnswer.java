@@ -1,6 +1,6 @@
 package com.jiancha.biz.edu.domain;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import com.ruoyi.common.core.domain.BaseEntity;
 
@@ -34,6 +34,18 @@ public class JcEduExamAnswer extends BaseEntity {
 
     /** 本题得分 */
     private Integer score;
+
+    /** 题型（非持久化，JOIN 组卷题目快照展示用） */
+    private String qtype;
+
+    /** 题目标题（非持久化，JOIN 组卷题目快照展示用） */
+    private String title;
+
+    /** 标准答案（非持久化，错题本展示用） */
+    private String answer;
+
+    /** 解析（非持久化，错题本展示用） */
+    private String analysis;
 
     public Long getAnswerId() {
         return answerId;
@@ -81,5 +93,37 @@ public class JcEduExamAnswer extends BaseEntity {
 
     public void setScore(Integer score) {
         this.score = score;
+    }
+
+    public String getQtype() {
+        return qtype;
+    }
+
+    public void setQtype(String qtype) {
+        this.qtype = qtype;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getAnswer() {
+        return answer;
+    }
+
+    public void setAnswer(String answer) {
+        this.answer = answer;
+    }
+
+    public String getAnalysis() {
+        return analysis;
+    }
+
+    public void setAnalysis(String analysis) {
+        this.analysis = analysis;
     }
 }

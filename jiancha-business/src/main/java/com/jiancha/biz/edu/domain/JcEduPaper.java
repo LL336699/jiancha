@@ -3,9 +3,9 @@ package com.jiancha.biz.edu.domain;
 import java.util.Date;
 import java.util.List;
 
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import com.ruoyi.common.core.domain.BaseEntity;
 

@@ -2,7 +2,7 @@ package com.jiancha.biz.edu.domain;
 
 import java.util.Date;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import com.ruoyi.common.core.domain.BaseEntity;
 
@@ -47,6 +47,18 @@ public class JcEduExam extends BaseEntity {
 
     /** 状态（字典 jc_edu_exam_status：进行中/已交卷/已评分/弃考） */
     private String status;
+
+    /** 试卷编号（非持久化，列表 JOIN jc_edu_paper 展示用） */
+    private String paperCode;
+
+    /** 试卷名称（非持久化，列表 JOIN jc_edu_paper 展示用） */
+    private String paperName;
+
+    /** 试卷总分（非持久化，列表 JOIN 展示用） */
+    private Integer totalScore;
+
+    /** 试卷及格分（非持久化，列表 JOIN 展示用） */
+    private Integer passScore;
 
     public Long getExamId() {
         return examId;
@@ -118,5 +130,37 @@ public class JcEduExam extends BaseEntity {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getPaperCode() {
+        return paperCode;
+    }
+
+    public void setPaperCode(String paperCode) {
+        this.paperCode = paperCode;
+    }
+
+    public String getPaperName() {
+        return paperName;
+    }
+
+    public void setPaperName(String paperName) {
+        this.paperName = paperName;
+    }
+
+    public Integer getTotalScore() {
+        return totalScore;
+    }
+
+    public void setTotalScore(Integer totalScore) {
+        this.totalScore = totalScore;
+    }
+
+    public Integer getPassScore() {
+        return passScore;
+    }
+
+    public void setPassScore(Integer passScore) {
+        this.passScore = passScore;
     }
 }

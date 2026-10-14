@@ -1,6 +1,27 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.jiancha.biz.edu.mapper.JcEduExamMapper">
+
+    <mapper namespace="com.jiancha.biz.edu.mapper.JcEduExamMapper">
+    <resultMap id="JcEduExamResult" type="com.jiancha.biz.edu.domain.JcEduExam">
+        <id     property="examId"     column="exam_id"/>
+        <result property="paperId"    column="paper_id"/>
+        <result property="personId"   column="person_id"/>
+        <result property="personName" column="person_name"/>
+        <result property="startTime"  column="start_time"/>
+        <result property="submitTime" column="submit_time"/>
+        <result property="score"      column="score"/>
+        <result property="passed"     column="passed"/>
+        <result property="status"     column="status"/>
+        <result property="paperCode"  column="paper_code"/>
+        <result property="paperName"  column="paper_name"/>
+        <result property="totalScore" column="total_score"/>
+        <result property="passScore"  column="pass_score"/>
+        <result property="createBy"   column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy"   column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark"     column="remark"/>
+    </resultMap>
 
     <sql id="selectExamVo">
         select e.exam_id, e.paper_id, e.person_id, e.person_name, e.start_time, e.submit_time,
@@ -11,7 +32,7 @@
         left join jc_edu_paper p on p.paper_id = e.paper_id
     </sql>
 
-    <select id="selectJcEduExamList" parameterType="com.jiancha.biz.edu.domain.JcEduExam" resultType="com.jiancha.biz.edu.domain.JcEduExam">
+    <select id="selectJcEduExamList" parameterType="com.jiancha.biz.edu.domain.JcEduExam" resultMap="JcEduExamResult">
         <include refid="selectExamVo"/>
         <where>
             e.del_flag = '0'
@@ -34,12 +55,12 @@
         order by e.create_time desc
     </select>
 
-    <select id="selectJcEduExamByExamId" parameterType="Long" resultType="com.jiancha.biz.edu.domain.JcEduExam">
+    <select id="selectJcEduExamByExamId" parameterType="Long" resultMap="JcEduExamResult">
         <include refid="selectExamVo"/>
         where e.exam_id = #{examId} and e.del_flag = '0'
     </select>
 
-    <select id="selectDoingExam" resultType="com.jiancha.biz.edu.domain.JcEduExam">
+    <select id="selectDoingExam" resultMap="JcEduExamResult">
         select exam_id, paper_id, person_id, person_name, start_time, submit_time,
                score, passed, status
         from jc_edu_exam
@@ -49,7 +70,7 @@
         limit 1
     </select>
 
-    <select id="selectPassedExam" resultType="com.jiancha.biz.edu.domain.JcEduExam">
+    <select id="selectPassedExam" resultMap="JcEduExamResult">
         select exam_id, paper_id, person_id, person_name, start_time, submit_time,
                score, passed, status
         from jc_edu_exam
@@ -63,11 +84,11 @@
         insert into jc_edu_exam (
             paper_id, person_id, person_name, start_time, submit_time,
             score, passed, status,
-            create_by, create_time
+            create_by, create_time, del_flag
         ) values (
             #{paperId}, #{personId}, #{personName}, ifnull(#{startTime}, now()), #{submitTime},
             #{score}, ifnull(#{passed}, '0'), ifnull(#{status}, '0'),
-            #{createBy}, now()
+            #{createBy}, now(), '0'
         )
     </insert>
 

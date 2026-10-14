@@ -1,6 +1,23 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.jiancha.biz.edu.mapper.JcEduPaperMapper">
+
+    <mapper namespace="com.jiancha.biz.edu.mapper.JcEduPaperMapper">
+    <resultMap id="JcEduPaperResult" type="com.jiancha.biz.edu.domain.JcEduPaper">
+        <id     property="paperId"     column="paper_id"/>
+        <result property="paperCode"   column="paper_code"/>
+        <result property="paperName"   column="paper_name"/>
+        <result property="paperMode"   column="paper_mode"/>
+        <result property="totalScore"  column="total_score"/>
+        <result property="passScore"   column="pass_score"/>
+        <result property="durationMin" column="duration_min"/>
+        <result property="status"      column="status"/>
+        <result property="publishTime" column="publish_time"/>
+        <result property="createBy"    column="create_by"/>
+        <result property="createTime"  column="create_time"/>
+        <result property="updateBy"    column="update_by"/>
+        <result property="updateTime"  column="update_time"/>
+        <result property="remark"      column="remark"/>
+    </resultMap>
 
     <sql id="selectPaperVo">
         select p.paper_id, p.paper_code, p.paper_name, p.paper_mode, p.total_score, p.pass_score,
@@ -9,7 +26,7 @@
         from jc_edu_paper p
     </sql>
 
-    <select id="selectJcEduPaperList" parameterType="com.jiancha.biz.edu.domain.JcEduPaper" resultType="com.jiancha.biz.edu.domain.JcEduPaper">
+    <select id="selectJcEduPaperList" parameterType="com.jiancha.biz.edu.domain.JcEduPaper" resultMap="JcEduPaperResult">
         <include refid="selectPaperVo"/>
         <where>
             p.del_flag = '0'
@@ -29,12 +46,12 @@
         order by p.create_time desc
     </select>
 
-    <select id="selectJcEduPaperByPaperId" parameterType="Long" resultType="com.jiancha.biz.edu.domain.JcEduPaper">
+    <select id="selectJcEduPaperByPaperId" parameterType="Long" resultMap="JcEduPaperResult">
         <include refid="selectPaperVo"/>
         where p.paper_id = #{paperId} and p.del_flag = '0'
     </select>
 
-    <select id="selectPublishedPapers" resultType="com.jiancha.biz.edu.domain.JcEduPaper">
+    <select id="selectPublishedPapers" resultMap="JcEduPaperResult">
         <include refid="selectPaperVo"/>
         where p.del_flag = '0' and p.status = '1'
         order by p.publish_time desc
@@ -47,11 +64,11 @@
     <insert id="insertJcEduPaper" parameterType="com.jiancha.biz.edu.domain.JcEduPaper" useGeneratedKeys="true" keyProperty="paperId">
         insert into jc_edu_paper (
             paper_code, paper_name, paper_mode, total_score, pass_score, duration_min, status,
-            create_by, create_time, remark
+            create_by, create_time, remark, del_flag
         ) values (
-            #{paperCode}, #{paperName}, ifnull(#{paperMode}, 'fixed'), ifnull(#{totalScore}, 0),
+            #{paperCode}, #{paperName}, ifnull(#{paperMode}, '手工'), ifnull(#{totalScore}, 0),
             #{passScore}, #{durationMin}, ifnull(#{status}, '0'),
-            #{createBy}, now(), #{remark}
+            #{createBy}, now(), #{remark}, '0'
         )
     </insert>
 

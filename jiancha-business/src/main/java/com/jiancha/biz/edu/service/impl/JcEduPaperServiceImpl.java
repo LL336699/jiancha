@@ -160,6 +160,9 @@ public class JcEduPaperServiceImpl implements IJcEduPaperService {
             }
         }
         paperQuestionMapper.deleteByPaperId(paperId);
+        for (JcEduPaperQuestion pq : questions) {
+            pq.setPaperId(paperId);
+        }
         paperQuestionMapper.batchInsert(questions);
         // 题目引用计数累加
         for (Long qid : ids) {
