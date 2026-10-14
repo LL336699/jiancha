@@ -32,4 +32,7 @@ public interface JcEduScanMapper {
 
     /** 考生成绩排行 */
     List<Map<String, Object>> examRanking(int limit);
+
+    /** 轻量参数读取（jiancha.edu.*，不引入 sys 模块依赖） */
+    String selectConfigValue(String key);
 }

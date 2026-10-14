@@ -141,9 +141,9 @@ public class JcEduCommitmentServiceImpl implements IJcEduCommitmentService {
         sign.setRecordType(RECORD_SIGN);
         sign.setStatus(COMMIT_PUBLISHED); // 签收记录状态：已签收
         sign.setSignType("电子签收");
+        sign.setSignTime(new java.util.Date());
         sign.setCreateBy(SecurityUtils.getUsername());
         commitmentMapper.insertJcEduCommitment(sign);
-        commitmentMapper.signCommitment(sign.getCommitId(), personId, personName, SecurityUtils.getUsername());
         return sign;
     }
 

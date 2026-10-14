@@ -24,6 +24,7 @@ import com.jiancha.biz.edu.domain.JcEduExam;
 import com.jiancha.biz.edu.domain.JcEduExamAnswer;
 import com.jiancha.biz.edu.domain.JcEduPaper;
 import com.jiancha.biz.edu.domain.JcEduPaperQuestion;
+import com.jiancha.biz.edu.domain.JcEduQuestion;
 import com.jiancha.biz.edu.mapper.JcEduExamAnswerMapper;
 import com.jiancha.biz.edu.mapper.JcEduExamMapper;
 import com.jiancha.biz.edu.mapper.JcEduPaperMapper;
@@ -140,7 +141,7 @@ public class JcEduExamServiceImpl implements IJcEduExamService {
                 if (a == null || StringUtils.isEmpty(a.get("questionId"))) {
                     continue;
                 }
-                myAnswers.put(Long.valueOf(a.get("questionId")), StringUtils.nullToEmpty(a.get("myAnswer")).trim());
+                myAnswers.put(Long.valueOf(a.get("questionId")), nv(a.get("myAnswer")).trim());
             }
         }
         // 逐题评分
@@ -272,7 +273,7 @@ public class JcEduExamServiceImpl implements IJcEduExamService {
         if (StringUtils.isEmpty(mine)) {
             return false;
         }
-        String std = StringUtils.nullToEmpty(q.getAnswer()).trim().toUpperCase();
+        String std = nv(q.getAnswer()).trim().toUpperCase();
         String my = mine.trim().toUpperCase();
         if (QTYPE_MULTI.equals(q.getQtype())) {
             Set<String> stdSet = new HashSet<>(Arrays.asList(std.split(",")));
@@ -289,12 +290,17 @@ public class JcEduExamServiceImpl implements IJcEduExamService {
 
     private boolean retakeEnabled() {
         String cfg = scanMapper.selectConfigValue("jiancha.edu.retake");
-        return "Y".equalsIgnoreCase(StringUtils.nullToEmpty(cfg).trim());
+        return "Y".equalsIgnoreCase(nv(cfg).trim());
     }
 
     private JcEduExam statusOf(String status) {
         JcEduExam q = new JcEduExam();
         q.setStatus(status);
         return q;
+    }
+
+    /** null 安全转空串（RuoYi StringUtils 无 nullToEmpty） */
+    private String nv(String s) {
+        return s == null ? "" : s;
     }
 }

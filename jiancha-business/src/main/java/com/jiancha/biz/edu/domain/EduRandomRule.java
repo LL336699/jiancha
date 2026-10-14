@@ -1,7 +1,7 @@
 package com.jiancha.biz.edu.domain;
 
 import javax.validation.constraints.Min;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * 随机组卷策略请求（M9）

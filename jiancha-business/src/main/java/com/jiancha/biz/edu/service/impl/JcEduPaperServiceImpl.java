@@ -116,8 +116,8 @@ public class JcEduPaperServiceImpl implements IJcEduPaperService {
             }
             List<JcEduQuestion> drawn = questionMapper.selectRandomByRule(rule.getCategory(), rule.getQtype(), count);
             if (drawn.size() < count) {
-                throw new ServiceException("题库「" + StringUtils.nullToEmpty(rule.getCategory()) + "｜"
-                        + StringUtils.nullToEmpty(rule.getQtype()) + "」仅 " + drawn.size()
+                throw new ServiceException("题库「" + nv(rule.getCategory()) + "｜"
+                        + nv(rule.getQtype()) + "」仅 " + drawn.size()
                         + " 道启用题，不足 " + count + " 道");
             }
             for (JcEduQuestion q : drawn) {
@@ -211,6 +211,11 @@ public class JcEduPaperServiceImpl implements IJcEduPaperService {
         update.setTotalScore(total);
         update.setPassScore((int) Math.round(total * 0.6));
         paperMapper.updateJcEduPaper(update);
+    }
+
+    /** null 安全转空串（RuoYi StringUtils 无 nullToEmpty） */
+    private String nv(String s) {
+        return s == null ? "" : s;
     }
 
     private JcEduPaperQuestion toPaperQuestion(JcEduQuestion q) {

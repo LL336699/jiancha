@@ -4,7 +4,7 @@ import java.util.Date;
 import java.util.List;
 
 import javax.validation.constraints.Min;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 
 import com.ruoyi.common.core.domain.BaseEntity;
