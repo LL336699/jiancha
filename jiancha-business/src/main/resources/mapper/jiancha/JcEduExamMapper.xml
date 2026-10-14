@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.edu.mapper.JcEduExamMapper">
+
+    <sql id="selectExamVo">
+        select e.exam_id, e.paper_id, e.person_id, e.person_name, e.start_time, e.submit_time,
+               e.score, e.passed, e.status,
+               p.paper_code, p.paper_name, p.total_score, p.pass_score,
+               e.create_by, e.create_time, e.update_by, e.update_time, e.remark
+        from jc_edu_exam e
+        left join jc_edu_paper p on p.paper_id = e.paper_id
+    </sql>
+
+    <select id="selectJcEduExamList" parameterType="com.jiancha.biz.edu.domain.JcEduExam" resultType="com.jiancha.biz.edu.domain.JcEduExam">
+        <include refid="selectExamVo"/>
+        <where>
+            e.del_flag = '0'
+            <if test="paperId != null">
+                and e.paper_id = #{paperId}
+            </if>
+            <if test="personId != null">
+                and e.person_id = #{personId}
+            </if>
+            <if test="personName != null and personName != ''">
+                and e.person_name like concat('%', #{personName}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                and e.status = #{status}
+            </if>
+            <if test="passed != null and passed != ''">
+                and e.passed = #{passed}
+            </if>
+        </where>
+        order by e.create_time desc
+    </select>
+
+    <select id="selectJcEduExamByExamId" parameterType="Long" resultType="com.jiancha.biz.edu.domain.JcEduExam">
+        <include refid="selectExamVo"/>
+        where e.exam_id = #{examId} and e.del_flag = '0'
+    </select>
+
+    <select id="selectDoingExam" resultType="com.jiancha.biz.edu.domain.JcEduExam">
+        select exam_id, paper_id, person_id, person_name, start_time, submit_time,
+               score, passed, status
+        from jc_edu_exam
+        where paper_id = #{paperId} and person_id = #{personId} and status = '0'
+          and del_flag = '0'
+        order by exam_id desc
+        limit 1
+    </select>
+
+    <select id="selectPassedExam" resultType="com.jiancha.biz.edu.domain.JcEduExam">
+        select exam_id, paper_id, person_id, person_name, start_time, submit_time,
+               score, passed, status
+        from jc_edu_exam
+        where paper_id = #{paperId} and person_id = #{personId} and passed = '1'
+          and del_flag = '0'
+        order by exam_id desc
+        limit 1
+    </select>
+
+    <insert id="insertJcEduExam" parameterType="com.jiancha.biz.edu.domain.JcEduExam" useGeneratedKeys="true" keyProperty="examId">
+        insert into jc_edu_exam (
+            paper_id, person_id, person_name, start_time, submit_time,
+            score, passed, status,
+            create_by, create_time
+        ) values (
+            #{paperId}, #{personId}, #{personName}, ifnull(#{startTime}, now()), #{submitTime},
+            #{score}, ifnull(#{passed}, '0'), ifnull(#{status}, '0'),
+            #{createBy}, now()
+        )
+    </insert>
+
+    <update id="submitExam" parameterType="com.jiancha.biz.edu.domain.JcEduExam">
+        update jc_edu_exam
+        set submit_time = ifnull(#{submitTime}, now()),
+            score = #{score},
+            passed = #{passed},
+            status = '1',
+            update_by = #{updateBy}, update_time = now()
+        where exam_id = #{examId} and status = '0'
+    </update>
+
+    <update id="abandonExam">
+        update jc_edu_exam
+        set status = '2',
+            update_by = #{updateBy}, update_time = now()
+        where exam_id = #{examId} and status = '0'
+    </update>
+
+    <select id="countTotal" resultType="long">
+        select count(1) from jc_edu_exam where del_flag = '0'
+    </select>
+
+    <select id="countPassed" resultType="long">
+        select count(1) from jc_edu_exam where del_flag = '0' and passed = '1'
+    </select>
+
+    <select id="countByPerson" resultType="long">
+        select count(1) from jc_edu_exam where person_id = #{personId} and del_flag = '0'
+    </select>
+
+    <select id="countPassedByPerson" resultType="long">
+        select count(1) from jc_edu_exam where person_id = #{personId} and passed = '1' and del_flag = '0'
+    </select>
+
+</mapper>

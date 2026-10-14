@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.edu.mapper.JcEduExamAnswerMapper">
+
+    <sql id="selectAnswerVo">
+        select a.answer_id, a.exam_id, a.question_id, a.my_answer, a.correct, a.score,
+               pq.qtype, pq.title, pq.answer, pq.analysis,
+               a.create_by, a.create_time, a.update_by, a.update_time
+        from jc_edu_exam_answer a
+        left join jc_edu_paper_question pq on pq.question_id = a.question_id and pq.paper_id = (
+            select paper_id from jc_edu_exam where exam_id = a.exam_id
+        )
+    </sql>
+
+    <select id="selectByExamId" resultType="com.jiancha.biz.edu.domain.JcEduExamAnswer">
+        <include refid="selectAnswerVo"/>
+        where a.exam_id = #{examId}
+        order by a.answer_id
+    </select>
+
+    <select id="selectWrongByPerson" resultType="com.jiancha.biz.edu.domain.JcEduExamAnswer">
+        <include refid="selectAnswerVo"/>
+        where a.correct = '0'
+          and a.exam_id in (select exam_id from jc_edu_exam where person_id = #{personId} and del_flag = '0')
+        order by a.create_time desc
+        limit #{limit}
+    </select>
+
+    <insert id="batchInsert" parameterType="java.util.List">
+        insert into jc_edu_exam_answer (
+            exam_id, question_id, my_answer, correct, score,
+            create_by, create_time
+        ) values
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.examId}, #{item.questionId}, #{item.myAnswer}, #{item.correct}, #{item.score},
+            #{item.createBy}, now()
+            )
+        </foreach>
+    </insert>
+
+    <delete id="deleteByExamId" parameterType="Long">
+        delete from jc_edu_exam_answer where exam_id = #{examId}
+    </delete>
+
+</mapper>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.edu.mapper.JcEduPaperQuestionMapper">
+
+    <select id="selectByPaperId" parameterType="Long" resultType="com.jiancha.biz.edu.domain.JcEduPaperQuestion">
+        select pq.id, pq.paper_id, pq.question_id, pq.title_snapshot, pq.qtype, pq.score, pq.sort_no
+        from jc_edu_paper_question pq
+        where pq.paper_id = #{paperId}
+        order by pq.sort_no, pq.id
+    </select>
+
+    <insert id="batchInsert">
+        insert into jc_edu_paper_question (paper_id, question_id, title_snapshot, qtype, score, sort_no)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.paperId}, #{item.questionId}, #{item.titleSnapshot}, #{item.qtype}, #{item.score}, #{item.sortNo})
+        </foreach>
+    </insert>
+
+    <delete id="deleteByPaperId" parameterType="Long">
+        delete from jc_edu_paper_question where paper_id = #{paperId}
+    </delete>
+
+    <select id="countByPaperId" parameterType="Long" resultType="long">
+        select count(1) from jc_edu_paper_question where paper_id = #{paperId}
+    </select>
+
+</mapper>

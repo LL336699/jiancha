@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.edu.mapper.JcEduCommitmentMapper">
+
+    <sql id="selectCommitmentVo">
+        select c.commit_id, c.title, c.scope_type, c.deadline, c.status,
+               c.person_id, c.person_name, c.sign_time, c.record_type,
+               c.create_by, c.create_time, c.update_by, c.update_time, c.remark
+        from jc_edu_commitment c
+    </sql>
+
+    <select id="selectJcEduCommitmentList" parameterType="com.jiancha.biz.edu.domain.JcEduCommitment" resultType="com.jiancha.biz.edu.domain.JcEduCommitment">
+        <include refid="selectCommitmentVo"/>
+        <where>
+            c.del_flag = '0'
+            <if test="recordType != null and recordType != ''">
+                and c.record_type = #{recordType}
+            </if>
+            <if test="scopeType != null and scopeType != ''">
+                and c.scope_type = #{scopeType}
+            </if>
+            <if test="status != null and status != ''">
+                and c.status = #{status}
+            </if>
+            <if test="personId != null">
+                and c.person_id = #{personId}
+            </if>
+            <if test="title != null and title != ''">
+                and c.title like concat('%', #{title}, '%')
+            </if>
+        </where>
+        order by c.create_time desc
+    </select>
+
+    <select id="selectJcEduCommitmentByCommitId" parameterType="Long" resultType="com.jiancha.biz.edu.domain.JcEduCommitment">
+        select c.commit_id, c.title, c.content, c.scope_type, c.deadline, c.status,
+               c.person_id, c.person_name, c.sign_time, c.record_type,
+               c.create_by, c.create_time, c.update_by, c.update_time, c.remark
+        from jc_edu_commitment c
+        where c.commit_id = #{commitId} and c.del_flag = '0'
+    </select>
+
+    <select id="selectSignRecord" resultType="com.jiancha.biz.edu.domain.JcEduCommitment">
+        <include refid="selectCommitmentVo"/>
+        where c.commit_id = #{commitId} and c.person_id = #{personId}
+          and c.record_type = '1' and c.del_flag = '0'
+        limit 1
+    </select>
+
+    <select id="selectPublished" resultType="com.jiancha.biz.edu.domain.JcEduCommitment">
+        <include refid="selectCommitmentVo"/>
+        where c.status = '1' and c.record_type = '0' and c.del_flag = '0'
+        order by c.create_time desc
+    </select>
+
+    <insert id="insertJcEduCommitment" parameterType="com.jiancha.biz.edu.domain.JcEduCommitment" useGeneratedKeys="true" keyProperty="commitId">
+        insert into jc_edu_commitment (
+            title, content, scope_type, deadline, status,
+            person_id, person_name, sign_time, record_type,
+            create_by, create_time, remark
+        ) values (
+            #{title}, #{content}, #{scopeType}, #{deadline}, ifnull(#{status}, '0'),
+            #{personId}, #{personName}, #{signTime}, ifnull(#{recordType}, '0'),
+            #{createBy}, now(), #{remark}
+        )
+    </insert>
+
+    <update id="updateJcEduCommitment" parameterType="com.jiancha.biz.edu.domain.JcEduCommitment">
+        update jc_edu_commitment
+        <set>
+            <if test="title != null and title != ''">title = #{title},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="scopeType != null and scopeType != ''">scope_type = #{scopeType},</if>
+            <if test="deadline != null">deadline = #{deadline},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy}, update_time = now()
+        </set>
+        where commit_id = #{commitId} and record_type = '0'
+    </update>
+
+    <update id="publishCommitment">
+        update jc_edu_commitment
+        set status = '1',
+            update_by = #{updateBy}, update_time = now()
+        where commit_id = #{commitId} and status = '0' and record_type = '0'
+    </update>
+
+    <update id="closeCommitment">
+        update jc_edu_commitment
+        set status = '2',
+            update_by = #{updateBy}, update_time = now()
+        where commit_id = #{commitId} and status = '1' and record_type = '0'
+    </update>
+
+    <update id="signCommitment">
+        update jc_edu_commitment
+        set status = '1',
+            sign_time = now(),
+            update_by = #{updateBy}, update_time = now()
+        where commit_id = #{commitId} and person_id = #{personId}
+          and record_type = '1' and del_flag = '0'
+    </update>
+
+    <delete id="deleteJcEduCommitmentByCommitId" parameterType="Long">
+        update jc_edu_commitment set del_flag = '2' where commit_id = #{commitId} and record_type = '0'
+    </delete>
+
+    <select id="countTotal" resultType="long">
+        select count(1) from jc_edu_commitment where record_type = '0' and del_flag = '0'
+    </select>
+
+    <select id="countExpected" resultType="long">
+        select count(1) from jc_person p
+        where p.del_flag = '0'
+          and exists (
+              select 1 from jc_edu_commitment c
+              where c.commit_id = #{commitId} and c.scope_type = '全员' and c.del_flag = '0'
+          )
+    </select>
+
+    <select id="countSigned" resultType="long">
+        select count(1) from jc_edu_commitment
+        where record_type = '1' and status = '1' and del_flag = '0'
+        <if test="commitId != null">
+            and commit_id = #{commitId}
+        </if>
+    </select>
+
+</mapper>

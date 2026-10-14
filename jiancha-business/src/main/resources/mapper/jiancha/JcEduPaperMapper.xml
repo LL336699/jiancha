@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.edu.mapper.JcEduPaperMapper">
+
+    <sql id="selectPaperVo">
+        select p.paper_id, p.paper_code, p.paper_name, p.paper_mode, p.total_score, p.pass_score,
+               p.duration_min, p.status, p.publish_time,
+               p.create_by, p.create_time, p.update_by, p.update_time, p.remark
+        from jc_edu_paper p
+    </sql>
+
+    <select id="selectJcEduPaperList" parameterType="com.jiancha.biz.edu.domain.JcEduPaper" resultType="com.jiancha.biz.edu.domain.JcEduPaper">
+        <include refid="selectPaperVo"/>
+        <where>
+            p.del_flag = '0'
+            <if test="paperCode != null and paperCode != ''">
+                and p.paper_code like concat('%', #{paperCode}, '%')
+            </if>
+            <if test="paperName != null and paperName != ''">
+                and p.paper_name like concat('%', #{paperName}, '%')
+            </if>
+            <if test="paperMode != null and paperMode != ''">
+                and p.paper_mode = #{paperMode}
+            </if>
+            <if test="status != null and status != ''">
+                and p.status = #{status}
+            </if>
+        </where>
+        order by p.create_time desc
+    </select>
+
+    <select id="selectJcEduPaperByPaperId" parameterType="Long" resultType="com.jiancha.biz.edu.domain.JcEduPaper">
+        <include refid="selectPaperVo"/>
+        where p.paper_id = #{paperId} and p.del_flag = '0'
+    </select>
+
+    <select id="selectPublishedPapers" resultType="com.jiancha.biz.edu.domain.JcEduPaper">
+        <include refid="selectPaperVo"/>
+        where p.del_flag = '0' and p.status = '1'
+        order by p.publish_time desc
+    </select>
+
+    <select id="selectMaxCodeByPrefix" parameterType="String" resultType="String">
+        select max(paper_code) from jc_edu_paper where paper_code like concat(#{prefix}, '%')
+    </select>
+
+    <insert id="insertJcEduPaper" parameterType="com.jiancha.biz.edu.domain.JcEduPaper" useGeneratedKeys="true" keyProperty="paperId">
+        insert into jc_edu_paper (
+            paper_code, paper_name, paper_mode, total_score, pass_score, duration_min, status,
+            create_by, create_time, remark
+        ) values (
+            #{paperCode}, #{paperName}, ifnull(#{paperMode}, 'fixed'), ifnull(#{totalScore}, 0),
+            #{passScore}, #{durationMin}, ifnull(#{status}, '0'),
+            #{createBy}, now(), #{remark}
+        )
+    </insert>
+
+    <update id="updateJcEduPaper" parameterType="com.jiancha.biz.edu.domain.JcEduPaper">
+        update jc_edu_paper
+        <set>
+            <if test="paperName != null and paperName != ''">paper_name = #{paperName},</if>
+            <if test="totalScore != null">total_score = #{totalScore},</if>
+            <if test="passScore != null">pass_score = #{passScore},</if>
+            <if test="durationMin != null">duration_min = #{durationMin},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy}, update_time = now()
+        </set>
+        where paper_id = #{paperId}
+    </update>
+
+    <update id="publishPaper">
+        update jc_edu_paper set status = '1', publish_time = now(), update_by = #{updateBy}, update_time = now()
+        where paper_id = #{paperId} and status = '0'
+    </update>
+
+    <update id="closePaper">
+        update jc_edu_paper set status = '2', update_by = #{updateBy}, update_time = now()
+        where paper_id = #{paperId} and status = '1'
+    </update>
+
+    <delete id="deleteJcEduPaperByPaperId" parameterType="Long">
+        update jc_edu_paper set del_flag = '2' where paper_id = #{paperId} and status = '0'
+    </delete>
+
+    <select id="countTotal" resultType="long">
+        select count(1) from jc_edu_paper where del_flag = '0'
+    </select>
+
+</mapper>

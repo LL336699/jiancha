@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.edu.mapper.JcEduQuestionMapper">
+
+    <!-- 列表：不返回 answer/analysis（防泄题，维护端用详情接口看答案） -->
+    <sql id="selectQuestionListVo">
+        select q.question_id, q.category, q.qtype, q.level, q.title, q.score, q.status, q.use_count,
+               q.create_by, q.create_time, q.remark
+        from jc_edu_question q
+    </sql>
+
+    <select id="selectJcEduQuestionList" parameterType="com.jiancha.biz.edu.domain.JcEduQuestion" resultType="com.jiancha.biz.edu.domain.JcEduQuestion">
+        <include refid="selectQuestionListVo"/>
+        <where>
+            q.del_flag = '0'
+            <if test="category != null and category != ''">
+                and q.category = #{category}
+            </if>
+            <if test="qtype != null and qtype != ''">
+                and q.qtype = #{qtype}
+            </if>
+            <if test="level != null and level != ''">
+                and q.level = #{level}
+            </if>
+            <if test="status != null and status != ''">
+                and q.status = #{status}
+            </if>
+            <if test="params.title != null and params.title != ''">
+                and q.title like concat('%', #{params.title}, '%')
+            </if>
+        </where>
+        order by q.create_time desc
+    </select>
+
+    <select id="selectJcEduQuestionByQuestionId" parameterType="Long" resultType="com.jiancha.biz.edu.domain.JcEduQuestion">
+        select q.question_id, q.category, q.qtype, q.level, q.title, q.options, q.answer, q.analysis,
+               q.score, q.status, q.use_count,
+               q.create_by, q.create_time, q.update_by, q.update_time, q.remark
+        from jc_edu_question q
+        where q.question_id = #{questionId} and q.del_flag = '0'
+    </select>
+
+    <select id="selectJcEduQuestionByIds" resultType="com.jiancha.biz.edu.domain.JcEduQuestion">
+        select q.question_id, q.category, q.qtype, q.title, q.options, q.answer, q.analysis, q.score, q.use_count
+        from jc_edu_question q
+        where q.question_id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+          and q.status = '0' and q.del_flag = '0'
+    </select>
+
+    <select id="selectRandomByRule" resultType="com.jiancha.biz.edu.domain.JcEduQuestion">
+        select q.question_id, q.category, q.qtype, q.title, q.options, q.answer, q.analysis, q.score
+        from jc_edu_question q
+        where q.category = #{category} and q.qtype = #{qtype} and q.status = '0' and q.del_flag = '0'
+        order by rand()
+        limit #{limit}
+    </select>
+
+    <update id="increaseUseCount" parameterType="Long">
+        update jc_edu_question set use_count = ifnull(use_count, 0) + 1, update_by = 'system' where question_id = #{questionId}
+    </update>
+
+    <insert id="insertJcEduQuestion" parameterType="com.jiancha.biz.edu.domain.JcEduQuestion" useGeneratedKeys="true" keyProperty="questionId">
+        insert into jc_edu_question (
+            category, qtype, level, title, options, answer, analysis, score, status, use_count,
+            create_by, create_time, remark
+        ) values (
+            #{category}, #{qtype}, #{level}, #{title}, #{options}, #{answer}, #{analysis}, #{score},
+            ifnull(#{status}, '0'), ifnull(#{useCount}, 0),
+            #{createBy}, now(), #{remark}
+        )
+    </insert>
+
+    <update id="updateJcEduQuestion" parameterType="com.jiancha.biz.edu.domain.JcEduQuestion">
+        update jc_edu_question
+        <set>
+            <if test="category != null and category != ''">category = #{category},</if>
+            <if test="qtype != null and qtype != ''">qtype = #{qtype},</if>
+            <if test="level != null">level = #{level},</if>
+            <if test="title != null and title != ''">title = #{title},</if>
+            <if test="options != null">options = #{options},</if>
+            <if test="answer != null and answer != ''">answer = #{answer},</if>
+            <if test="analysis != null">analysis = #{analysis},</if>
+            <if test="score != null">score = #{score},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy}, update_time = now()
+        </set>
+        where question_id = #{questionId}
+    </update>
+
+    <delete id="deleteJcEduQuestionByQuestionIds" parameterType="Long">
+        update jc_edu_question set del_flag = '2' where question_id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+
+    <select id="countTotal" resultType="long">
+        select count(1) from jc_edu_question where del_flag = '0'
+    </select>
+
+    <select id="countEnabled" resultType="long">
+        select count(1) from jc_edu_question where del_flag = '0' and status = '0'
+    </select>
+
+</mapper>
