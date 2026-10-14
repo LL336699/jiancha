@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.rectify.mapper.JcRectifyIssueMapper">
+
+    <!--
+      注意（踩坑记录）：del_flag 只作为查询过滤条件，不映射进实体
+      （BaseEntity 无 delFlag 字段，映射后取数会抛 no setter）。
+    -->
+
+    <resultMap id="JcRectifyIssueResult" type="com.jiancha.biz.rectify.domain.JcRectifyIssue">
+        <id     property="issueId"         column="issue_id"/>
+        <result property="issueNo"         column="issue_no"/>
+        <result property="sourceType"      column="source_type"/>
+        <result property="sourceRef"       column="source_ref"/>
+        <result property="title"           column="title"/>
+        <result property="description"     column="description"/>
+        <result property="problemType"     column="problem_type"/>
+        <result property="severity"        column="severity"/>
+        <result property="foundDate"       column="found_date"/>
+        <result property="foundDept"       column="found_dept"/>
+        <result property="targetDeptId"    column="target_dept_id"/>
+        <result property="targetPersonId"  column="target_person_id"/>
+        <result property="deadline"        column="deadline"/>
+        <result property="status"          column="status"/>
+        <result property="warnLevel"       column="warn_level"/>
+        <result property="rectifySummary"  column="rectify_summary"/>
+        <result property="closeTime"       column="close_time"/>
+        <result property="createBy"        column="create_by"/>
+        <result property="createTime"      column="create_time"/>
+        <result property="updateBy"        column="update_by"/>
+        <result property="updateTime"      column="update_time"/>
+        <result property="remark"          column="remark"/>
+        <!-- 关联/聚合展示字段 -->
+        <result property="taskCount"       column="task_count"/>
+        <result property="taskDoneCount"   column="task_done_count"/>
+        <result property="remainDays"      column="remain_days"/>
+        <result property="deptName"        column="dept_name"/>
+        <result property="personName"      column="person_name"/>
+    </resultMap>
+
+    <sql id="selectIssueJoin">
+        select i.issue_id, i.issue_no, i.source_type, i.source_ref, i.title, i.description,
+               i.problem_type, i.severity, i.found_date, i.found_dept,
+               i.target_dept_id, i.target_person_id, i.deadline,
+               i.status, i.warn_level, i.rectify_summary, i.close_time,
+               i.create_by, i.create_time, i.update_by, i.update_time, i.remark,
+               (select count(1) from jc_rectify_task t where t.issue_id = i.issue_id) as task_count,
+               (select count(1) from jc_rectify_task t where t.issue_id = i.issue_id and t.status = '2') as task_done_count,
+               case when i.deadline is null then null
+                    else datediff(i.deadline, curdate()) end as remain_days,
+               d.dept_name  as dept_name,
+               p.name       as person_name
+        from jc_rectify_issue i
+        left join sys_dept  d on d.dept_id  = i.target_dept_id
+        left join jc_person p on p.person_id = i.target_person_id
+    </sql>
+
+    <select id="selectJcRectifyIssueList" parameterType="com.jiancha.biz.rectify.domain.JcRectifyIssue" resultMap="JcRectifyIssueResult">
+        <include refid="selectIssueJoin"/>
+        <where>
+            i.del_flag = '0'
+            <if test="issueNo != null and issueNo != ''">
+                and i.issue_no like concat('%', #{issueNo}, '%')
+            </if>
+            <if test="sourceType != null and sourceType != ''">
+                and i.source_type = #{sourceType}
+            </if>
+            <if test="sourceRef != null and sourceRef != ''">
+                and i.source_ref = #{sourceRef}
+            </if>
+            <if test="problemType != null and problemType != ''">
+                and i.problem_type = #{problemType}
+            </if>
+            <if test="severity != null and severity != ''">
+                and i.severity = #{severity}
+            </if>
+            <if test="status != null and status != ''">
+                and i.status = #{status}
+            </if>
+            <if test="warnLevel != null and warnLevel != ''">
+                and i.warn_level = #{warnLevel}
+            </if>
+            <if test="targetDeptId != null">
+                and i.target_dept_id = #{targetDeptId}
+            </if>
+            <if test="title != null and title != ''">
+                and i.title like concat('%', #{title}, '%')
+            </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and date_format(i.create_time, '%Y%m%d') &gt;= date_format(#{params.beginTime}, '%Y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and date_format(i.create_time, '%Y%m%d') &lt;= date_format(#{params.endTime}, '%Y%m%d')
+            </if>
+        </where>
+        order by
+            case when i.status in ('3','4') then 1 else 0 end,
+            case i.warn_level when '红灯' then 0 when '黄灯' then 1 else 2 end,
+            i.deadline asc,
+            i.create_time desc
+    </select>
+
+    <select id="selectJcRectifyIssueByIssueId" parameterType="Long" resultMap="JcRectifyIssueResult">
+        <include refid="selectIssueJoin"/>
+        where i.issue_id = #{issueId}
+    </select>
+
+    <select id="selectBySourceRef" parameterType="String" resultMap="JcRectifyIssueResult">
+        <include refid="selectIssueJoin"/>
+        where i.del_flag = '0' and i.source_ref = #{sourceRef}
+    </select>
+
+    <select id="selectMaxNoByPrefix" resultType="String">
+        select max(issue_no) from jc_rectify_issue where issue_no like concat(#{prefix}, '%')
+    </select>
+
+    <insert id="insertJcRectifyIssue" parameterType="com.jiancha.biz.rectify.domain.JcRectifyIssue" useGeneratedKeys="true" keyProperty="issueId">
+        insert into jc_rectify_issue (
+            <trim suffixOverrides=",">
+                <if test="issueNo != null and issueNo != ''">issue_no,</if>
+                <if test="sourceType != null and sourceType != ''">source_type,</if>
+                <if test="sourceRef != null and sourceRef != ''">source_ref,</if>
+                <if test="title != null and title != ''">title,</if>
+                <if test="description != null">description,</if>
+                <if test="problemType != null and problemType != ''">problem_type,</if>
+                <if test="severity != null and severity != ''">severity,</if>
+                <if test="foundDate != null">found_date,</if>
+                <if test="foundDept != null and foundDept != ''">found_dept,</if>
+                <if test="targetDeptId != null">target_dept_id,</if>
+                <if test="targetPersonId != null">target_person_id,</if>
+                <if test="deadline != null">deadline,</if>
+                <if test="status != null and status != ''">status,</if>
+                <if test="warnLevel != null">warn_level,</if>
+                <if test="rectifySummary != null">rectify_summary,</if>
+                <if test="closeTime != null">close_time,</if>
+                <if test="remark != null">remark,</if>
+                create_by, create_time
+            </trim>
+        ) values (
+            <trim suffixOverrides=",">
+                <if test="issueNo != null and issueNo != ''">#{issueNo},</if>
+                <if test="sourceType != null and sourceType != ''">#{sourceType},</if>
+                <if test="sourceRef != null and sourceRef != ''">#{sourceRef},</if>
+                <if test="title != null and title != ''">#{title},</if>
+                <if test="description != null">#{description},</if>
+                <if test="problemType != null and problemType != ''">#{problemType},</if>
+                <if test="severity != null and severity != ''">#{severity},</if>
+                <if test="foundDate != null">#{foundDate},</if>
+                <if test="foundDept != null and foundDept != ''">#{foundDept},</if>
+                <if test="targetDeptId != null">#{targetDeptId},</if>
+                <if test="targetPersonId != null">#{targetPersonId},</if>
+                <if test="deadline != null">#{deadline},</if>
+                <if test="status != null and status != ''">#{status},</if>
+                <if test="warnLevel != null">#{warnLevel},</if>
+                <if test="rectifySummary != null">#{rectifySummary},</if>
+                <if test="closeTime != null">#{closeTime},</if>
+                <if test="remark != null">#{remark},</if>
+                #{createBy}, sysdate()
+            </trim>
+        )
+    </insert>
+
+    <update id="updateJcRectifyIssue" parameterType="com.jiancha.biz.rectify.domain.JcRectifyIssue">
+        update jc_rectify_issue
+        <set>
+            <if test="title != null and title != ''">title = #{title},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="problemType != null and problemType != ''">problem_type = #{problemType},</if>
+            <if test="severity != null and severity != ''">severity = #{severity},</if>
+            <if test="foundDate != null">found_date = #{foundDate},</if>
+            <if test="foundDept != null and foundDept != ''">found_dept = #{foundDept},</if>
+            <if test="targetDeptId != null">target_dept_id = #{targetDeptId},</if>
+            <if test="targetPersonId != null">target_person_id = #{targetPersonId},</if>
+            <if test="deadline != null">deadline = #{deadline},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="warnLevel != null">warn_level = #{warnLevel},</if>
+            <if test="rectifySummary != null">rectify_summary = #{rectifySummary},</if>
+            <if test="closeTime != null">close_time = #{closeTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where issue_id = #{issueId}
+    </update>
+
+    <update id="updateWarnLevel">
+        update jc_rectify_issue set warn_level = #{warnLevel} where issue_id = #{issueId}
+    </update>
+
+    <update id="reopenIssue">
+        update jc_rectify_issue
+        set status = '1', close_time = null, warn_level = #{warnLevel},
+            update_by = #{updateBy}, update_time = sysdate()
+        where issue_id = #{issueId}
+    </update>
+
+    <delete id="deleteJcRectifyIssueByIssueId" parameterType="Long">
+        update jc_rectify_issue set del_flag = '1' where issue_id = #{issueId}
+    </delete>
+
+    <select id="selectActiveIssues" resultMap="JcRectifyIssueResult">
+        <include refid="selectIssueJoin"/>
+        where i.del_flag = '0' and i.status in ('0','1','2') and i.deadline is not null
+        order by i.deadline asc
+    </select>
+
+    <!-- ==================== 统计（SQL 层聚合，口径统一在后端） ==================== -->
+
+    <select id="statCounts" resultType="java.util.Map">
+        select
+            count(1) as total,
+            sum(case when status = '0' then 1 else 0 end) as pending,
+            sum(case when status in ('1','2') then 1 else 0 end) as rectifying,
+            sum(case when status = '3' then 1 else 0 end) as closed,
+            sum(case when warn_level = '红灯' then 1 else 0 end) as overdue
+        from jc_rectify_issue where del_flag = '0'
+    </select>
+
+    <select id="statAvgCloseDays" resultType="java.lang.Double">
+        select avg(datediff(close_time, create_time))
+        from jc_rectify_issue
+        where del_flag = '0' and status = '3' and close_time is not null
+    </select>
+
+    <select id="statRevisitCount" resultType="java.lang.Long">
+        select count(1) from jc_rectify_review where review_type = '2'
+    </select>
+
+    <select id="statBySource" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_rectify_issue i
+        left join sys_dict_data dd on dd.dict_type = 'jc_rectify_source' and dd.dict_value = i.source_type
+        where i.del_flag = '0'
+        group by i.source_type, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statByType" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_rectify_issue i
+        left join sys_dict_data dd on dd.dict_type = 'jc_rectify_type' and dd.dict_value = i.problem_type
+        where i.del_flag = '0'
+        group by i.problem_type, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statBySeverity" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_rectify_issue i
+        left join sys_dict_data dd on dd.dict_type = 'jc_rectify_severity' and dd.dict_value = i.severity
+        where i.del_flag = '0'
+        group by i.severity, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statByStatus" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_rectify_issue i
+        left join sys_dict_data dd on dd.dict_type = 'jc_rectify_status' and dd.dict_value = i.status
+        where i.del_flag = '0'
+        group by i.status, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statMonthlyTrend" resultType="java.util.Map">
+        select date_format(i.create_time, '%Y-%m') as name, count(1) as value
+        from jc_rectify_issue i
+        where i.del_flag = '0' and i.create_time &gt;= date_sub(curdate(), interval 11 month)
+        group by date_format(i.create_time, '%Y-%m')
+        order by name
+    </select>
+
+    <select id="statByTargetDept" resultType="java.util.Map">
+        select d.dept_name as name, count(1) as value
+        from jc_rectify_issue i
+        left join sys_dept d on d.dept_id = i.target_dept_id
+        where i.del_flag = '0' and i.create_time &gt;= #{since} and i.target_dept_id is not null
+        group by i.target_dept_id, d.dept_name
+        order by value desc
+        limit 10
+    </select>
+
+</mapper>
