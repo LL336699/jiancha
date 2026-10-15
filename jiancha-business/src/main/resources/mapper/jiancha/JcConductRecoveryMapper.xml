@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.conduct.mapper.JcConductRecoveryMapper">
+
+    <!--
+      注意（踩坑记录）：项目 mapUnderscoreToCamelCase 被注释关闭，必须显式 resultMap；
+      del_flag 只作查询过滤，不映射进实体。
+    -->
+
+    <resultMap id="JcConductRecoveryResult" type="com.jiancha.biz.conduct.domain.JcConductRecovery">
+        <id     property="recoveryId"   column="recovery_id"/>
+        <result property="issueId"      column="issue_id"/>
+        <result property="itemName"     column="item_name"/>
+        <result property="itemQty"      column="item_qty"/>
+        <result property="unit"         column="unit"/>
+        <result property="amount"       column="amount"/>
+        <result property="recoveryDate" column="recovery_date"/>
+        <result property="receiver"     column="receiver"/>
+        <result property="createBy"     column="create_by"/>
+        <result property="createTime"   column="create_time"/>
+        <result property="updateBy"     column="update_by"/>
+        <result property="updateTime"   column="update_time"/>
+        <result property="remark"       column="remark"/>
+        <!-- 聚合展示字段：问题编号 / 问题人员姓名 -->
+        <result property="issueNo"      column="issue_no"/>
+        <result property="personName"   column="person_name"/>
+    </resultMap>
+
+    <sql id="selectRecoveryVo">
+        select r.recovery_id, r.issue_id, r.item_name, r.item_qty, r.unit, r.amount,
+               r.recovery_date, r.receiver, r.create_by, r.create_time, r.update_by, r.update_time, r.remark,
+               i.issue_no, i.person_name
+        from jc_conduct_recovery r
+        left join jc_conduct_issue i on i.issue_id = r.issue_id and i.del_flag = '0'
+    </sql>
+
+    <select id="selectByIssueId" parameterType="Long" resultMap="JcConductRecoveryResult">
+        <include refid="selectRecoveryVo"/>
+        where r.issue_id = #{issueId} and r.del_flag = '0'
+        order by r.recovery_date desc, r.recovery_id desc
+    </select>
+
+    <select id="selectByRecoveryId" parameterType="Long" resultMap="JcConductRecoveryResult">
+        <include refid="selectRecoveryVo"/>
+        where r.recovery_id = #{recoveryId}
+    </select>
+
+</mapper>

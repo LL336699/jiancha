@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.conduct.mapper.JcConductIssueMapper">
+
+    <!--
+      注意（踩坑记录）：
+      1) 项目 mybatis-config.xml 的 mapUnderscoreToCamelCase 被注释关闭，
+         所有查询必须走显式 resultMap，不能用 resultType 自动映射；
+      2) del_flag 只作为查询过滤条件，不映射进实体（BaseEntity 无此字段）。
+    -->
+
+    <resultMap id="JcConductIssueResult" type="com.jiancha.biz.conduct.domain.JcConductIssue">
+        <id     property="issueId"         column="issue_id"/>
+        <result property="issueNo"         column="issue_no"/>
+        <result property="personId"        column="person_id"/>
+        <result property="personName"      column="person_name"/>
+        <result property="personDept"      column="person_dept"/>
+        <result property="violationType"   column="violation_type"/>
+        <result property="violationDate"   column="violation_date"/>
+        <result property="violationDesc"   column="violation_desc"/>
+        <result property="amount"          column="amount"/>
+        <result property="amountRecovered" column="amount_recovered"/>
+        <result property="sourceType"      column="source_type"/>
+        <result property="severity"        column="severity"/>
+        <result property="checkDeadline"   column="check_deadline"/>
+        <result property="status"          column="status"/>
+        <result property="warnLevel"       column="warn_level"/>
+        <result property="handleType"      column="handle_type"/>
+        <result property="handleDate"      column="handle_date"/>
+        <result property="handleDesc"      column="handle_desc"/>
+        <result property="punishId"        column="punish_id"/>
+        <result property="rectifyId"       column="rectify_id"/>
+        <result property="closeTime"       column="close_time"/>
+        <result property="createBy"        column="create_by"/>
+        <result property="createTime"      column="create_time"/>
+        <result property="updateBy"        column="update_by"/>
+        <result property="updateTime"      column="update_time"/>
+        <result property="remark"          column="remark"/>
+        <!-- 聚合展示字段：剩余天数（负数=核查已超期） -->
+        <result property="remainDays"      column="remain_days"/>
+        <!-- 聚合展示字段：转整改后整改状态 -->
+        <result property="rectifyStatus"   column="rectify_status"/>
+    </resultMap>
+
+    <sql id="selectIssueVo">
+        select c.issue_id, c.issue_no, c.person_id, c.person_name, c.person_dept,
+               c.violation_type, c.violation_date, c.violation_desc, c.amount, c.amount_recovered,
+               c.source_type, c.severity, c.check_deadline, c.status, c.warn_level,
+               c.handle_type, c.handle_date, c.handle_desc, c.punish_id, c.rectify_id, c.close_time,
+               c.create_by, c.create_time, c.update_by, c.update_time, c.remark,
+               case when c.check_deadline is null then null
+                    else datediff(c.check_deadline, curdate())
+               end as remain_days,
+               ri.status as rectify_status
+        from jc_conduct_issue c
+        left join jc_rectify_issue ri on ri.issue_id = c.rectify_id and ri.del_flag = '0'
+    </sql>
+
+    <select id="selectJcConductIssueList" parameterType="com.jiancha.biz.conduct.domain.JcConductIssue" resultMap="JcConductIssueResult">
+        <include refid="selectIssueVo"/>
+        <where>
+            c.del_flag = '0'
+            <if test="issueNo != null and issueNo != ''">
+                and c.issue_no like concat('%', #{issueNo}, '%')
+            </if>
+            <if test="personName != null and personName != ''">
+                and c.person_name like concat('%', #{personName}, '%')
+            </if>
+            <if test="personDept != null and personDept != ''">
+                and c.person_dept like concat('%', #{personDept}, '%')
+            </if>
+            <if test="violationType != null and violationType != ''">
+                and c.violation_type = #{violationType}
+            </if>
+            <if test="sourceType != null and sourceType != ''">
+                and c.source_type = #{sourceType}
+            </if>
+            <if test="severity != null and severity != ''">
+                and c.severity = #{severity}
+            </if>
+            <if test="handleType != null and handleType != ''">
+                and c.handle_type = #{handleType}
+            </if>
+            <if test="personId != null">
+                and c.person_id = #{personId}
+            </if>
+            <if test="status != null and status != ''">
+                and c.status = #{status}
+            </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and date_format(c.violation_date, '%Y%m%d') &gt;= date_format(#{params.beginTime}, '%Y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and date_format(c.violation_date, '%Y%m%d') &lt;= date_format(#{params.endTime}, '%Y%m%d')
+            </if>
+        </where>
+        order by
+            case when c.status in ('3','4') then 1 else 0 end,
+            case when c.check_deadline is null then 2
+                 when c.check_deadline &lt; curdate() then 0
+                 else 1 end,
+            c.create_time desc
+    </select>
+
+    <select id="selectJcConductIssueByIssueId" parameterType="Long" resultMap="JcConductIssueResult">
+        <include refid="selectIssueVo"/>
+        where c.issue_id = #{issueId}
+    </select>
+
+    <select id="selectByIssueNo" parameterType="String" resultMap="JcConductIssueResult">
+        <include refid="selectIssueVo"/>
+        where c.issue_no = #{issueNo}
+    </select>
+
+    <select id="selectMaxNoByPrefix" resultType="String">
+        select max(issue_no) from jc_conduct_issue where issue_no like concat(#{prefix}, '%')
+    </select>
+
+    <insert id="insertJcConductIssue" parameterType="com.jiancha.biz.conduct.domain.JcConductIssue" useGeneratedKeys="true" keyProperty="issueId">
+        insert into jc_conduct_issue (
+            issue_no, person_id, person_name, person_dept,
+            violation_type, violation_date, source_type, severity, check_deadline, status,
+            create_by, create_time, remark, del_flag
+        ) values (
+            #{issueNo}, #{personId}, #{personName}, #{personDept},
+            #{violationType}, #{violationDate}, #{sourceType}, #{severity}, #{checkDeadline}, #{status},
+            #{createBy}, sysdate(), #{remark}, '0'
+        )
+    </insert>
+
+    <update id="updateJcConductIssue" parameterType="com.jiancha.biz.conduct.domain.JcConductIssue">
+        update jc_conduct_issue
+        <set>
+            <if test="violationDate != null">violation_date = #{violationDate},</if>
+            <if test="sourceType != null and sourceType != ''">source_type = #{sourceType},</if>
+            <if test="severity != null and severity != ''">severity = #{severity},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where issue_id = #{issueId}
+    </update>
+
+    <delete id="deleteJcConductIssueByIssueId" parameterType="Long">
+        update jc_conduct_issue set del_flag = '1' where issue_id = #{issueId}
+    </delete>
+
+    <!-- ==================== 统计 ==================== -->
+
+    <select id="countTotal" resultType="java.lang.Long">
+        select count(1) from jc_conduct_issue where del_flag = '0'
+    </select>
+
+    <select id="countPending" resultType="java.lang.Long">
+        select count(1) from jc_conduct_issue where del_flag = '0' and status = '0'
+    </select>
+
+    <select id="countHandled" resultType="java.lang.Long">
+        select count(1) from jc_conduct_issue where del_flag = '0' and status = '2'
+    </select>
+
+    <select id="countClosed" resultType="java.lang.Long">
+        select count(1) from jc_conduct_issue where del_flag = '0' and status = '3'
+    </select>
+
+    <select id="sumRecovered" resultType="java.math.BigDecimal">
+        select coalesce(sum(amount_recovered), 0) from jc_conduct_issue
+        where del_flag = '0' and amount_recovered is not null
+    </select>
+
+    <select id="statByType" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_conduct_issue c
+        left join sys_dict_data dd on dd.dict_type = 'jc_conduct_type' and dd.dict_value = c.violation_type
+        where c.del_flag = '0'
+        group by c.violation_type, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statBySeverity" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_conduct_issue c
+        left join sys_dict_data dd on dd.dict_type = 'jc_conduct_severity' and dd.dict_value = c.severity
+        where c.del_flag = '0'
+        group by c.severity, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statBySource" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_conduct_issue c
+        left join sys_dict_data dd on dd.dict_type = 'jc_conduct_source' and dd.dict_value = c.source_type
+        where c.del_flag = '0'
+        group by c.source_type, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statByDept" resultType="java.util.Map">
+        select c.person_dept as name, count(1) as value
+        from jc_conduct_issue c
+        where c.del_flag = '0' and c.person_dept is not null and c.person_dept != ''
+        group by c.person_dept
+        order by value desc
+        limit 10
+    </select>
+
+    <select id="statByHandle" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_conduct_issue c
+        left join sys_dict_data dd on dd.dict_type = 'jc_conduct_handle' and dd.dict_value = c.handle_type
+        where c.del_flag = '0' and c.status = '2'
+        group by c.handle_type, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statMonthlyIssues" resultType="java.util.Map">
+        select date_format(c.violation_date, '%Y-%m') as name, count(1) as value
+        from jc_conduct_issue c
+        where c.del_flag = '0' and c.violation_date &gt;= date_sub(curdate(), interval 11 month)
+        group by date_format(c.violation_date, '%Y-%m')
+        order by name
+    </select>
+
+</mapper>

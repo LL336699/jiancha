@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.conduct.mapper.JcConductScanMapper">
+
+    <!--
+      跨模块只读聚合（消费方模块内写 SQL，不反向依赖他模块 Mapper）。
+      注意：档案域表 del_flag='2' 为删除；业务域表 '0' 正常。
+    -->
+
+    <!-- 人员档案简况（登记时快照姓名/部门） -->
+    <select id="selectPersonBrief" parameterType="Long" resultType="java.util.Map">
+        select p.person_id as personId, p.name as personName,
+               coalesce(d.dept_name, '') as personDept
+        from jc_person p
+        left join sys_dept d on d.dept_id = p.dept_id and d.del_flag = '0'
+        where p.person_id = #{personId} and p.del_flag = '0'
+    </select>
+
+    <!-- 人员检索（登记选人：姓名/工号模糊） -->
+    <select id="searchPersons" parameterType="String" resultType="java.util.Map">
+        select p.person_id as personId, p.person_code as personCode, p.name as personName,
+               coalesce(d.dept_name, '') as personDept
+        from jc_person p
+        left join sys_dept d on d.dept_id = p.dept_id and d.del_flag = '0'
+        where p.del_flag = '0'
+          <if test="keyword != null and keyword != ''">
+              and (p.name like concat('%', #{keyword}, '%') or p.person_code like concat('%', #{keyword}, '%'))
+          </if>
+        order by p.person_id
+        limit 20
+    </select>
+
+    <!-- 该人员在办作风建设问题数（重复登记提示） -->
+    <select id="countActiveByPerson" parameterType="Long" resultType="java.lang.Long">
+        select count(1) from jc_conduct_issue
+        where person_id = #{personId} and del_flag = '0' and status in ('0','1')
+    </select>
+
+    <!-- 转整改查重：同一 conduct 单号是否已立整改项 -->
+    <select id="selectRectifyIdBySourceRef" parameterType="String" resultType="java.lang.Long">
+        select issue_id from jc_rectify_issue
+        where source_type = 'conduct' and source_ref = #{sourceRef} and del_flag = '0'
+        limit 1
+    </select>
+
+    <!-- 整改单号最大前缀（RX+yyyyMMdd+seq，与 E3 模块同规则） -->
+    <select id="selectMaxRectifyNoByPrefix" parameterType="String" resultType="String">
+        select max(issue_no) from jc_rectify_issue where issue_no like concat(#{prefix}, '%')
+    </select>
+
+</mapper>
