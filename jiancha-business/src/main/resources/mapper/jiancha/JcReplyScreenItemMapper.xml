@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.reply.mapper.JcReplyScreenItemMapper">
+
+    <!--
+      注意（踩坑记录）：mapUnderscoreToCamelCase 被注释关闭，
+      必须显式 resultMap；del_flag 只做查询过滤，不映射进实体。
+    -->
+
+    <resultMap id="JcReplyScreenItemResult" type="com.jiancha.biz.reply.domain.JcReplyScreenItem">
+        <id     property="itemId"        column="item_id"/>
+        <result property="requestId"     column="request_id"/>
+        <result property="sourceModule"  column="source_module"/>
+        <result property="sourceNo"      column="source_no"/>
+        <result property="summary"       column="summary"/>
+        <result property="sourceStatus"  column="source_status"/>
+        <result property="riskWeight"    column="risk_weight"/>
+        <result property="screenTime"    column="screen_time"/>
+        <result property="createBy"      column="create_by"/>
+        <result property="createTime"    column="create_time"/>
+        <result property="remark"        column="remark"/>
+    </resultMap>
+
+    <select id="selectByRequestId" parameterType="Long" resultMap="JcReplyScreenItemResult">
+        select item_id, request_id, source_module, source_no, summary, source_status,
+               risk_weight, screen_time, create_by, create_time, remark
+        from jc_reply_screen_item
+        where request_id = #{requestId} and del_flag = '0'
+        order by risk_weight desc, item_id asc
+    </select>
+
+    <select id="countByModule" parameterType="Long" resultType="java.util.Map">
+        select source_module as sourceModule, count(1) as cnt
+        from jc_reply_screen_item
+        where request_id = #{requestId} and del_flag = '0'
+        group by source_module
+    </select>
+
+    <delete id="deleteByRequestId" parameterType="Long">
+        update jc_reply_screen_item set del_flag = '1' where request_id = #{requestId}
+    </delete>
+
+    <insert id="batchInsert" parameterType="java.util.List">
+        insert into jc_reply_screen_item (
+            request_id, source_module, source_no, summary, source_status,
+            risk_weight, screen_time, create_by, create_time, del_flag
+        ) values
+        <foreach collection="list" item="it" separator=",">
+            (
+                #{it.requestId}, #{it.sourceModule}, #{it.sourceNo}, #{it.summary}, #{it.sourceStatus},
+                #{it.riskWeight}, #{it.screenTime}, #{it.createBy}, sysdate(), '0'
+            )
+        </foreach>
+    </insert>
+
+    <select id="countBySourceModule" parameterType="String" resultType="java.lang.Long">
+        select count(1) from jc_reply_screen_item
+        where source_module = #{sourceModule} and del_flag = '0'
+    </select>
+
+    <select id="statHitsByModule" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_reply_screen_item i
+        left join sys_dict_data dd on dd.dict_type = 'jc_reply_source' and dd.dict_value = i.source_module
+        where i.del_flag = '0'
+        group by i.source_module, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+</mapper>

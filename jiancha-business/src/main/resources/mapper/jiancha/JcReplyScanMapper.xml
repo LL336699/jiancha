@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.reply.mapper.JcReplyScanMapper">
+
+    <!--
+      廉政意见回复·跨模块筛查聚合（E2）
+      六个数据源只读查询，统一输出三列：
+        source_no     来源单号
+        summary       摘要
+        source_status 来源原始状态（后端按模块+状态换算风险权重）
+      域差异（踩坑记录）：
+        档案域表（jc_clue/jc_person/jc_person_punish）del_flag='0' 为存在、'2' 为删除；
+        业务域表（jc_petition/jc_rectify_issue/jc_risk_alert/jc_supplier_link）del_flag='0' 为正常、'1' 为删除。
+        各查询按所属域分别写死对应过滤值。
+    -->
+
+    <!-- 0. 人员档案简要信息（登记快照补全；档案域 del_flag='0' 为存在） -->
+    <select id="selectPersonBrief" parameterType="Long" resultType="java.util.Map">
+        select p.name as personName,
+               (select d.dept_name from sys_dept d where d.dept_id = p.dept_id) as personDept
+        from jc_person p
+        where p.person_id = #{personId} and p.del_flag = '0'
+    </select>
+
+    <!-- 1. 在办问题线索（状态 0待受理/1已受理/2核查中/3处置中 为未结） -->
+    <select id="scanClues" parameterType="Long" resultType="java.util.Map">
+        select clue_no as source_no,
+               summary  as summary,
+               status   as source_status
+        from jc_clue
+        where person_id = #{personId}
+          and del_flag = '0'
+          and status in ('0','1','2','3')
+          and is_duplicate = '0'
+        order by create_time desc
+    </select>
+
+    <!-- 2. 被举报记录（jc_petition 无独立编号列，用 petition:{id}；6已归档/7不予受理为终态） -->
+    <select id="scanPetitions" parameterType="Long" resultType="java.util.Map">
+        select concat('petition:', p.petition_id) as source_no,
+               p.title  as summary,
+               p.status as source_status
+        from jc_petition p
+        where p.target_name = (select name from jc_person where person_id = #{personId} and del_flag = '0')
+          and p.del_flag = '0'
+          and p.status not in ('6','7')
+        order by p.create_time desc
+    </select>
+
+    <!-- 3. 未闭环整改问题（0待整改/1整改中/2待复核 为未闭环） -->
+    <select id="scanRectify" parameterType="Long" resultType="java.util.Map">
+        select issue_no as source_no,
+               title    as summary,
+               status   as source_status
+        from jc_rectify_issue
+        where target_person_id = #{personId}
+          and del_flag = '0'
+          and status in ('0','1','2')
+        order by create_time desc
+    </select>
+
+    <!-- 4. 未闭环风险预警（object_type=0 人员；0待核实/1核实中 为未闭环；附带等级与风险分） -->
+    <select id="scanRiskAlerts" parameterType="Long" resultType="java.util.Map">
+        select alert_no as source_no,
+               rule_name as summary,
+               status    as source_status,
+               alert_level as alert_level,
+               score     as score
+        from jc_risk_alert
+        where object_type = '0'
+          and object_id = #{personId}
+          and del_flag = '0'
+          and status in ('0','1')
+        order by score desc, create_time desc
+    </select>
+
+    <!-- 5. 供应商关联（0待处置/2观察/3禁入 为有效风险；1正常/4解除不算） -->
+    <select id="scanSupplierLinks" parameterType="Long" resultType="java.util.Map">
+        select concat('SUP:', s.supplier_code) as source_no,
+               concat('与供应商「', s.supplier_name, '」存在', l.link_type, '关联') as summary,
+               l.handle_result as source_status
+        from jc_supplier_link l
+        left join jc_supplier s on s.supplier_id = l.supplier_id
+        where l.person_id = #{personId}
+          and l.del_flag = '0'
+          and l.handle_result in ('0','2','3')
+        order by l.create_time desc
+    </select>
+
+    <!-- 6. 廉政处分记录（近 3 年） -->
+    <select id="scanPunishments" parameterType="Long" resultType="java.util.Map">
+        select concat('处分:', punish_id) as source_no,
+               concat(punish_type, '：', punish_reason) as summary,
+               date_format(punish_date, '%Y-%m-%d') as source_status
+        from jc_person_punish
+        where person_id = #{personId}
+          and del_flag = '0'
+          and punish_date &gt;= date_sub(curdate(), interval 3 year)
+        order by punish_date desc
+    </select>
+
+    <!-- 7. 人员检索（登记时选人：姓名/编号模糊匹配，档案域 del_flag='0'） -->
+    <select id="searchPersons" parameterType="String" resultType="java.util.Map">
+        select p.person_id   as personId,
+               p.person_code as personCode,
+               p.name        as personName,
+               d.dept_name   as personDept
+        from jc_person p
+        left join sys_dept d on d.dept_id = p.dept_id
+        where p.del_flag = '0'
+        <if test="keyword != null and keyword != ''">
+            and (p.name like concat('%', #{keyword}, '%')
+                 or p.person_code like concat('%', #{keyword}, '%'))
+        </if>
+        order by p.person_code
+        limit 20
+    </select>
+
+</mapper>

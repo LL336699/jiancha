@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.reply.mapper.JcReplyRequestMapper">
+
+    <!--
+      注意（踩坑记录）：
+      1) 项目 mybatis-config.xml 的 mapUnderscoreToCamelCase 被注释关闭，
+         所有查询必须走显式 resultMap，不能用 resultType 自动映射；
+      2) del_flag 只作为查询过滤条件，不映射进实体（BaseEntity 无此字段）。
+    -->
+
+    <resultMap id="JcReplyRequestResult" type="com.jiancha.biz.reply.domain.JcReplyRequest">
+        <id     property="requestId"     column="request_id"/>
+        <result property="requestNo"     column="request_no"/>
+        <result property="personId"      column="person_id"/>
+        <result property="personName"    column="person_name"/>
+        <result property="personDept"    column="person_dept"/>
+        <result property="matterType"    column="matter_type"/>
+        <result property="matterDesc"    column="matter_desc"/>
+        <result property="applyDept"     column="apply_dept"/>
+        <result property="applyContact"  column="apply_contact"/>
+        <result property="applyDocNo"    column="apply_doc_no"/>
+        <result property="receiveDate"   column="receive_date"/>
+        <result property="deadlineDays"  column="deadline_days"/>
+        <result property="status"        column="status"/>
+        <result property="suggestResult" column="suggest_result"/>
+        <result property="finalResult"   column="final_result"/>
+        <result property="replyContent"  column="reply_content"/>
+        <result property="replyDate"     column="reply_date"/>
+        <result property="replyBy"       column="reply_by"/>
+        <result property="hitCount"      column="hit_count"/>
+        <result property="warnLevel"     column="warn_level"/>
+        <result property="createBy"      column="create_by"/>
+        <result property="createTime"    column="create_time"/>
+        <result property="updateBy"      column="update_by"/>
+        <result property="updateTime"    column="update_time"/>
+        <result property="remark"        column="remark"/>
+        <!-- 聚合展示字段：剩余天数（负数=已超期） -->
+        <result property="remainDays"    column="remain_days"/>
+    </resultMap>
+
+    <sql id="selectRequestVo">
+        select r.request_id, r.request_no, r.person_id, r.person_name, r.person_dept,
+               r.matter_type, r.matter_desc, r.apply_dept, r.apply_contact, r.apply_doc_no,
+               r.receive_date, r.deadline_days, r.status, r.suggest_result, r.final_result,
+               r.reply_content, r.reply_date, r.reply_by, r.hit_count, r.warn_level,
+               r.create_by, r.create_time, r.update_by, r.update_time, r.remark,
+               case when r.receive_date is null or r.deadline_days is null then null
+                    else datediff(date_add(r.receive_date, interval r.deadline_days day), curdate())
+               end as remain_days
+        from jc_reply_request r
+    </sql>
+
+    <select id="selectJcReplyRequestList" parameterType="com.jiancha.biz.reply.domain.JcReplyRequest" resultMap="JcReplyRequestResult">
+        <include refid="selectRequestVo"/>
+        <where>
+            r.del_flag = '0'
+            <if test="requestNo != null and requestNo != ''">
+                and r.request_no like concat('%', #{requestNo}, '%')
+            </if>
+            <if test="personName != null and personName != ''">
+                and r.person_name like concat('%', #{personName}, '%')
+            </if>
+            <if test="matterType != null and matterType != ''">
+                and r.matter_type = #{matterType}
+            </if>
+            <if test="personId != null">
+                and r.person_id = #{personId}
+            </if>
+            <if test="status != null and status != ''">
+                and r.status = #{status}
+            </if>
+            <if test="suggestResult != null and suggestResult != ''">
+                and r.suggest_result = #{suggestResult}
+            </if>
+            <if test="finalResult != null and finalResult != ''">
+                and r.final_result = #{finalResult}
+            </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and date_format(r.receive_date, '%Y%m%d') &gt;= date_format(#{params.beginTime}, '%Y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and date_format(r.receive_date, '%Y%m%d') &lt;= date_format(#{params.endTime}, '%Y%m%d')
+            </if>
+        </where>
+        order by
+            case when r.status in ('2','3') then 1 else 0 end,
+            case when r.receive_date is null or r.deadline_days is null then 2
+                 when date_add(r.receive_date, interval r.deadline_days day) &lt; curdate() then 0
+                 else 1 end,
+            r.create_time desc
+    </select>
+
+    <select id="selectJcReplyRequestByRequestId" parameterType="Long" resultMap="JcReplyRequestResult">
+        <include refid="selectRequestVo"/>
+        where r.request_id = #{requestId}
+    </select>
+
+    <select id="selectMaxNoByPrefix" resultType="String">
+        select max(request_no) from jc_reply_request where request_no like concat(#{prefix}, '%')
+    </select>
+
+    <insert id="insertJcReplyRequest" parameterType="com.jiancha.biz.reply.domain.JcReplyRequest" useGeneratedKeys="true" keyProperty="requestId">
+        insert into jc_reply_request (
+            request_no, person_id, person_name, person_dept,
+            matter_type, matter_desc, apply_dept, apply_contact, apply_doc_no,
+            receive_date, deadline_days, status,
+            create_by, create_time, remark, del_flag
+        ) values (
+            #{requestNo}, #{personId}, #{personName}, #{personDept},
+            #{matterType}, #{matterDesc}, #{applyDept}, #{applyContact}, #{applyDocNo},
+            #{receiveDate}, #{deadlineDays}, #{status},
+            #{createBy}, sysdate(), #{remark}, '0'
+        )
+    </insert>
+
+    <update id="updateJcReplyRequest" parameterType="com.jiancha.biz.reply.domain.JcReplyRequest">
+        update jc_reply_request
+        <set>
+            <if test="matterDesc != null">matter_desc = #{matterDesc},</if>
+            <if test="applyDept != null">apply_dept = #{applyDept},</if>
+            <if test="applyContact != null">apply_contact = #{applyContact},</if>
+            <if test="applyDocNo != null">apply_doc_no = #{applyDocNo},</if>
+            <if test="receiveDate != null">receive_date = #{receiveDate},</if>
+            <if test="deadlineDays != null">deadline_days = #{deadlineDays},</if>
+            <if test="matterType != null and matterType != ''">matter_type = #{matterType},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where request_id = #{requestId}
+    </update>
+
+    <!-- 筛查完成：写入建议结论 + 命中数 + 状态 0 → 1 -->
+    <update id="screenDone">
+        update jc_reply_request
+        set status = '1', suggest_result = #{suggestResult}, hit_count = #{hitCount},
+            update_by = #{updateBy}, update_time = sysdate()
+        where request_id = #{requestId} and status = '0'
+    </update>
+
+    <!-- 出具正式结论：状态 1 → 2 -->
+    <update id="replyDone">
+        update jc_reply_request
+        set status = '2', final_result = #{finalResult}, reply_content = #{replyContent},
+            reply_date = #{replyDate}, reply_by = #{updateBy},
+            update_by = #{updateBy}, update_time = sysdate()
+        where request_id = #{requestId} and status = '1'
+    </update>
+
+    <!-- 关闭：任意非终态 → 3 -->
+    <update id="closeRequest">
+        update jc_reply_request
+        set status = '3', update_by = #{updateBy}, update_time = sysdate()
+        where request_id = #{requestId} and status not in ('2','3')
+    </update>
+
+    <delete id="deleteJcReplyRequestByRequestId" parameterType="Long">
+        update jc_reply_request set del_flag = '1' where request_id = #{requestId}
+    </delete>
+
+    <!-- ==================== 统计 ==================== -->
+
+    <select id="countTotal" resultType="java.lang.Long">
+        select count(1) from jc_reply_request where del_flag = '0'
+    </select>
+
+    <select id="countReplied" resultType="java.lang.Long">
+        select count(1) from jc_reply_request where del_flag = '0' and status = '2'
+    </select>
+
+    <select id="countOverdue" resultType="java.lang.Long">
+        select count(1) from jc_reply_request
+        where del_flag = '0' and status not in ('2','3')
+          and receive_date is not null and deadline_days is not null
+          and date_add(receive_date, interval deadline_days day) &lt; curdate()
+    </select>
+
+    <select id="countByStatus" parameterType="String" resultType="java.lang.Long">
+        select count(1) from jc_reply_request where del_flag = '0' and status = #{status}
+    </select>
+
+    <select id="statAvgReplyDays" resultType="java.lang.Double">
+        select avg(datediff(reply_date, receive_date))
+        from jc_reply_request
+        where del_flag = '0' and status = '2' and reply_date is not null and receive_date is not null
+    </select>
+
+    <select id="statByMatter" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_reply_request r
+        left join sys_dict_data dd on dd.dict_type = 'jc_reply_matter' and dd.dict_value = r.matter_type
+        where r.del_flag = '0'
+        group by r.matter_type, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statByResult" resultType="java.util.Map">
+        select dd.dict_label as name, count(1) as value
+        from jc_reply_request r
+        left join sys_dict_data dd on dd.dict_type = 'jc_reply_conclusion' and dd.dict_value = r.final_result
+        where r.del_flag = '0' and r.status = '2'
+        group by r.final_result, dd.dict_label, dd.dict_sort
+        order by dd.dict_sort
+    </select>
+
+    <select id="statMonthlyRequests" resultType="java.util.Map">
+        select date_format(r.receive_date, '%Y-%m') as name, count(1) as value
+        from jc_reply_request r
+        where r.del_flag = '0' and r.receive_date &gt;= date_sub(curdate(), interval 11 month)
+        group by date_format(r.receive_date, '%Y-%m')
+        order by name
+    </select>
+
+    <select id="statByDept" resultType="java.util.Map">
+        select r.person_dept as name, count(1) as value
+        from jc_reply_request r
+        where r.del_flag = '0' and r.person_dept is not null and r.person_dept != ''
+        group by r.person_dept
+        order by value desc
+        limit 10
+    </select>
+
+    <!-- 红黄灯刷新：进行中申请（0待筛查/1已筛查待核实） -->
+    <select id="selectActiveRequests" resultMap="JcReplyRequestResult">
+        select r.request_id, r.receive_date, r.deadline_days, r.status, r.warn_level,
+               r.create_by, r.create_time, r.update_by, r.update_time, r.remark,
+               null as remain_days
+        from jc_reply_request r
+        where r.del_flag = '0' and r.status in ('0','1')
+    </select>
+
+    <update id="updateWarnLevel">
+        update jc_reply_request
+        set warn_level = #{warnLevel}, update_by = 'system', update_time = sysdate()
+        where request_id = #{requestId}
+    </update>
+
+</mapper>
