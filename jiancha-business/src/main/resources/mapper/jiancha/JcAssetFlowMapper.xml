@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.asset.mapper.JcAssetFlowMapper">
+
+    <resultMap type="com.jiancha.biz.asset.domain.JcAssetFlow" id="JcAssetFlowResult">
+        <id     property="flowId"     column="flow_id"/>
+        <result property="assetId"    column="asset_id"/>
+        <result property="flowType"   column="flow_type"/>
+        <result property="fromStatus" column="from_status"/>
+        <result property="toStatus"   column="to_status"/>
+        <result property="operator"   column="operator"/>
+        <result property="flowDate"   column="flow_date"/>
+        <result property="flowDesc"   column="flow_desc"/>
+        <result property="voucherNo"  column="voucher_no"/>
+        <result property="createBy"   column="create_by"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="selectFlowVo">
+        select f.flow_id, f.asset_id, f.flow_type, f.from_status, f.to_status, f.operator,
+               f.flow_date, f.flow_desc, f.voucher_no, f.create_by, f.create_time
+        from jc_asset_flow f
+    </sql>
+
+    <select id="selectByAssetId" parameterType="Long" resultMap="JcAssetFlowResult">
+        <include refid="selectFlowVo"/>
+        where f.asset_id = #{assetId} and f.del_flag = '0'
+        order by f.flow_date desc, f.flow_id desc
+    </select>
+
+</mapper>

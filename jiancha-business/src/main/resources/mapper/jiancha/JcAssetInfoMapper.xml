@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.asset.mapper.JcAssetInfoMapper">
+
+    <resultMap type="com.jiancha.biz.asset.domain.JcAssetInfo" id="JcAssetInfoResult">
+        <id     property="assetId"         column="asset_id"/>
+        <result property="assetNo"         column="asset_no"/>
+        <result property="sourceType"      column="source_type"/>
+        <result property="sourceNo"        column="source_no"/>
+        <result property="personId"        column="person_id"/>
+        <result property="personName"      column="person_name"/>
+        <result property="personDept"      column="person_dept"/>
+        <result property="itemName"        column="item_name"/>
+        <result property="itemCategory"    column="item_category"/>
+        <result property="itemQty"         column="item_qty"/>
+        <result property="unit"            column="unit"/>
+        <result property="estimatedValue"  column="estimated_value"/>
+        <result property="keeper"          column="keeper"/>
+        <result property="storagePlace"    column="storage_place"/>
+        <result property="seizeDate"       column="seize_date"/>
+        <result property="storeDate"       column="store_date"/>
+        <result property="disposeDeadline" column="dispose_deadline"/>
+        <result property="disposeType"     column="dispose_type"/>
+        <result property="disposeDate"     column="dispose_date"/>
+        <result property="disposeDesc"     column="dispose_desc"/>
+        <result property="status"          column="status"/>
+        <result property="warnLevel"       column="warn_level"/>
+        <result property="remainDays"      column="remain_days"/>
+        <result property="flowCount"       column="flow_count"/>
+        <result property="createBy"        column="create_by"/>
+        <result property="createTime"      column="create_time"/>
+        <result property="updateBy"        column="update_by"/>
+        <result property="updateTime"      column="update_time"/>
+        <result property="remark"          column="remark"/>
+    </resultMap>
+
+    <sql id="selectAssetInfoVo">
+        select a.asset_id, a.asset_no, a.source_type, a.source_no, a.person_id, a.person_name, a.person_dept,
+               a.item_name, a.item_category, a.item_qty, a.unit, a.estimated_value,
+               a.keeper, a.storage_place, a.seize_date, a.store_date, a.dispose_deadline,
+               a.dispose_type, a.dispose_date, a.dispose_desc, a.status, a.warn_level,
+               a.create_by, a.create_time, a.update_by, a.update_time, a.remark,
+               case when a.dispose_deadline is null then null
+                    else datediff(a.dispose_deadline, curdate())
+               end as remain_days,
+               (select count(1) from jc_asset_flow f where f.asset_id = a.asset_id and f.del_flag = '0') as flow_count
+        from jc_asset_info a
+    </sql>
+
+    <select id="selectJcAssetInfoByAssetId" parameterType="Long" resultMap="JcAssetInfoResult">
+        <include refid="selectAssetInfoVo"/>
+        where a.asset_id = #{assetId} and a.del_flag = '0'
+    </select>
+
+    <select id="selectAssetNoByAssetNo" parameterType="String" resultMap="JcAssetInfoResult">
+        <include refid="selectAssetInfoVo"/>
+        where a.asset_no = #{assetNo} and a.del_flag = '0'
+    </select>
+
+    <select id="selectJcAssetInfoList" parameterType="com.jiancha.biz.asset.domain.JcAssetInfo" resultMap="JcAssetInfoResult">
+        <include refid="selectAssetInfoVo"/>
+        <where>
+            a.del_flag = '0'
+            <if test="assetNo != null and assetNo != ''">
+                and a.asset_no like concat('%', #{assetNo}, '%')
+            </if>
+            <if test="itemName != null and itemName != ''">
+                and a.item_name like concat('%', #{itemName}, '%')
+            </if>
+            <if test="personName != null and personName != ''">
+                and a.person_name like concat('%', #{personName}, '%')
+            </if>
+            <if test="itemCategory != null and itemCategory != ''">
+                and a.item_category = #{itemCategory}
+            </if>
+            <if test="status != null and status != ''">
+                and a.status = #{status}
+            </if>
+            <if test="sourceType != null and sourceType != ''">
+                and a.source_type = #{sourceType}
+            </if>
+            <if test="sourceNo != null and sourceNo != ''">
+                and a.source_no like concat('%', #{sourceNo}, '%')
+            </if>
+            <if test="warnLevel != null and warnLevel != ''">
+                and a.warn_level = #{warnLevel}
+            </if>
+        </where>
+        order by a.create_time desc
+    </select>
+
+    <update id="updateJcAssetInfo" parameterType="com.jiancha.biz.asset.domain.JcAssetInfo">
+        update jc_asset_info
+        <set>
+            <if test="itemName != null and itemName != ''">item_name = #{itemName},</if>
+            <if test="itemCategory != null and itemCategory != ''">item_category = #{itemCategory},</if>
+            <if test="itemQty != null">item_qty = #{itemQty},</if>
+            <if test="unit != null and unit != ''">unit = #{unit},</if>
+            <if test="estimatedValue != null">estimated_value = #{estimatedValue},</if>
+            <if test="keeper != null">keeper = #{keeper},</if>
+            <if test="storagePlace != null">storage_place = #{storagePlace},</if>
+            <if test="seizeDate != null">seize_date = #{seizeDate},</if>
+            <if test="disposeDeadline != null">dispose_deadline = #{disposeDeadline},</if>
+            <if test="personId != null">person_id = #{personId},</if>
+            <if test="personName != null">person_name = #{personName},</if>
+            <if test="personDept != null">person_dept = #{personDept},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy}, update_time = now()
+        </set>
+        where asset_id = #{assetId} and del_flag = '0' and status = '0'
+    </update>
+
+</mapper>
