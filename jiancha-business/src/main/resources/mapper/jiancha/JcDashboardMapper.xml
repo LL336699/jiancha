@@ -75,4 +75,313 @@
         ORDER BY month
     </select>
 
+    <!-- 段12：P8 八大模块运行统计（UNION ALL，每行一个模块；light 由 service 回填） -->
+    <select id="moduleStats" resultType="com.jiancha.biz.dashboard.domain.ModuleStat">
+        SELECT 'petition' AS moduleKey, '信访举报' AS moduleName,
+               COUNT(*)                                                                                   AS total,
+               SUM(CASE WHEN status NOT IN ('6','7') THEN 1 ELSE 0 END)                                   AS processing,
+               SUM(CASE WHEN status IN ('6','7') THEN 1 ELSE 0 END)                                       AS done,
+               SUM(CASE WHEN status NOT IN ('6','7') AND handle_deadline IS NOT NULL AND handle_deadline &lt; CURDATE() THEN 1 ELSE 0 END) AS overdue
+        FROM jc_petition WHERE del_flag = '0'
+        UNION ALL
+        SELECT 'rectify', '整改闭环',
+               COUNT(*),
+               SUM(CASE WHEN status NOT IN ('3','4') THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status IN ('3','4') THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status NOT IN ('3','4') AND deadline IS NOT NULL AND deadline &lt; CURDATE() THEN 1 ELSE 0 END)
+        FROM jc_rectify_issue WHERE del_flag = '0'
+        UNION ALL
+        SELECT 'risk', '廉政风控',
+               COUNT(*),
+               SUM(CASE WHEN status IN ('0','1') THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status IN ('2','3','4') THEN 1 ELSE 0 END),
+               0
+        FROM jc_risk_alert WHERE del_flag = '0'
+        UNION ALL
+        SELECT 'supplier', '供应商廉洁',
+               COUNT(*),
+               SUM(CASE WHEN status = '0' THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status &lt;&gt; '0' THEN 1 ELSE 0 END),
+               0
+        FROM jc_supplier WHERE del_flag = '0'
+        UNION ALL
+        SELECT 'edu', '廉政教育',
+               COUNT(*),
+               SUM(CASE WHEN status = '进行中' THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status &lt;&gt; '进行中' THEN 1 ELSE 0 END),
+               0
+        FROM jc_edu_exam WHERE del_flag = '0'
+        UNION ALL
+        SELECT 'reply', '廉政意见回复',
+               COUNT(*),
+               SUM(CASE WHEN status NOT IN ('2','3') THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status IN ('2','3') THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status NOT IN ('2','3') AND deadline_days IS NOT NULL AND DATE_ADD(create_time, INTERVAL deadline_days DAY) &lt; CURDATE() THEN 1 ELSE 0 END)
+        FROM jc_reply_request WHERE del_flag = '0'
+        UNION ALL
+        SELECT 'conduct', '作风建设',
+               COUNT(*),
+               SUM(CASE WHEN status NOT IN ('3','4') THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status IN ('3','4') THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status NOT IN ('3','4') AND check_deadline IS NOT NULL AND check_deadline &lt; CURDATE() THEN 1 ELSE 0 END)
+        FROM jc_conduct_issue WHERE del_flag = '0'
+        UNION ALL
+        SELECT 'asset', '涉案财物',
+               COUNT(*),
+               SUM(CASE WHEN status NOT IN ('3','4') THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status IN ('3','4') THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status NOT IN ('3','4') AND dispose_deadline IS NOT NULL AND dispose_deadline &lt; CURDATE() THEN 1 ELSE 0 END)
+        FROM jc_asset_info WHERE del_flag = '0'
+        ORDER BY moduleKey
+    </select>
+
+    <!-- 段12：供应商黑名单(含禁入)数量（status 为字典码：3=禁入 4=黑名单） -->
+    <select id="supplierBlack" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM jc_supplier
+        WHERE del_flag = '0' AND status IN ('3', '4')
+    </select>
+
+    <!-- 段12：指定模块的月度趋势（复用 MonthCount；module 取值 petition/rectify/reply/conduct/risk） -->
+    <select id="moduleTrend" parameterType="java.lang.String" resultType="com.jiancha.biz.dashboard.domain.MonthCount">
+        <choose>
+            <when test="module == 'petition'">
+                SELECT DATE_FORMAT(create_time, '%Y-%m') AS month, COUNT(*) AS value
+                FROM jc_petition WHERE del_flag = '0' AND create_time IS NOT NULL
+                GROUP BY DATE_FORMAT(create_time, '%Y-%m') ORDER BY month
+            </when>
+            <when test="module == 'rectify'">
+                SELECT DATE_FORMAT(create_time, '%Y-%m') AS month, COUNT(*) AS value
+                FROM jc_rectify_issue WHERE del_flag = '0' AND create_time IS NOT NULL
+                GROUP BY DATE_FORMAT(create_time, '%Y-%m') ORDER BY month
+            </when>
+            <when test="module == 'reply'">
+                SELECT DATE_FORMAT(create_time, '%Y-%m') AS month, COUNT(*) AS value
+                FROM jc_reply_request WHERE del_flag = '0' AND create_time IS NOT NULL
+                GROUP BY DATE_FORMAT(create_time, '%Y-%m') ORDER BY month
+            </when>
+            <when test="module == 'conduct'">
+                SELECT DATE_FORMAT(create_time, '%Y-%m') AS month, COUNT(*) AS value
+                FROM jc_conduct_issue WHERE del_flag = '0' AND create_time IS NOT NULL
+                GROUP BY DATE_FORMAT(create_time, '%Y-%m') ORDER BY month
+            </when>
+            <when test="module == 'risk'">
+                SELECT DATE_FORMAT(create_time, '%Y-%m') AS month, COUNT(*) AS value
+                FROM jc_risk_alert WHERE del_flag = '0' AND create_time IS NOT NULL
+                GROUP BY DATE_FORMAT(create_time, '%Y-%m') ORDER BY month
+            </when>
+            <otherwise>
+                SELECT '0' AS month, 0 AS value FROM dual WHERE 1 = 0
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 段12：指定模块的状态分布（复用 NameValue；module 取值 asset/supplier/edu） -->
+    <select id="moduleStatus" parameterType="java.lang.String" resultType="com.jiancha.biz.dashboard.domain.NameValue">
+        <choose>
+            <when test="module == 'asset'">
+                SELECT CASE a.status WHEN '0' THEN '已扣押待入库' WHEN '1' THEN '入库暂存'
+                                    WHEN '2' THEN '处置中' WHEN '3' THEN '已处置' WHEN '4' THEN '已退还'
+                                    ELSE '未知' END AS name, COUNT(*) AS value
+                FROM jc_asset_info a
+                WHERE a.del_flag = '0' GROUP BY a.status ORDER BY value DESC
+            </when>
+            <when test="module == 'supplier'">
+                SELECT COALESCE(d.dict_label, s.status) AS name, COUNT(*) AS value
+                FROM jc_supplier s
+                LEFT JOIN sys_dict_data d ON d.dict_type = 'jc_supplier_status' AND d.dict_value = s.status
+                WHERE s.del_flag = '0' GROUP BY s.status, d.dict_label ORDER BY value DESC
+            </when>
+            <when test="module == 'edu'">
+                SELECT COALESCE(d.dict_label, e.status) AS name, COUNT(*) AS value
+                FROM jc_edu_exam e
+                LEFT JOIN sys_dict_data d ON d.dict_type = 'jc_edu_exam_status' AND d.dict_value = e.status
+                WHERE e.del_flag = '0' GROUP BY e.status, d.dict_label ORDER BY value DESC
+            </when>
+            <otherwise>
+                SELECT '0' AS name, 0 AS value FROM dual WHERE 1 = 0
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 段12：跨模块超期事项清单（仅含带期限字段的 5 个模块；module 为空/未知时返回全部） -->
+    <select id="overdueItems" parameterType="java.lang.String" resultType="com.jiancha.biz.dashboard.domain.OverdueItem">
+        <choose>
+            <when test="module == 'petition'">
+                SELECT 'petition' AS moduleKey, '信访举报' AS moduleName, petition_id AS bizId, title AS title,
+                       target_dept AS ownerDept, target_name AS ownerName, handle_deadline AS deadline,
+                       DATEDIFF(CURDATE(), handle_deadline) AS overdueDays
+                FROM jc_petition
+                WHERE del_flag = '0' AND status NOT IN ('6','7')
+                  AND handle_deadline IS NOT NULL AND handle_deadline &lt; CURDATE()
+            </when>
+            <when test="module == 'rectify'">
+                SELECT 'rectify' AS moduleKey, '整改闭环' AS moduleName, issue_id AS bizId, title AS title,
+                       found_dept AS ownerDept, NULL AS ownerName, deadline AS deadline,
+                       DATEDIFF(CURDATE(), deadline) AS overdueDays
+                FROM jc_rectify_issue
+                WHERE del_flag = '0' AND status NOT IN ('3','4')
+                  AND deadline IS NOT NULL AND deadline &lt; CURDATE()
+            </when>
+            <when test="module == 'reply'">
+                SELECT 'reply' AS moduleKey, '廉政意见回复' AS moduleName, request_id AS bizId, matter_desc AS title,
+                       person_dept AS ownerDept, person_name AS ownerName,
+                       DATE_ADD(create_time, INTERVAL deadline_days DAY) AS deadline,
+                       DATEDIFF(CURDATE(), DATE_ADD(create_time, INTERVAL deadline_days DAY)) AS overdueDays
+                FROM jc_reply_request
+                WHERE del_flag = '0' AND status NOT IN ('2','3')
+                  AND deadline_days IS NOT NULL
+                  AND DATE_ADD(create_time, INTERVAL deadline_days DAY) &lt; CURDATE()
+            </when>
+            <when test="module == 'conduct'">
+                SELECT 'conduct' AS moduleKey, '作风建设' AS moduleName, issue_id AS bizId, violation_desc AS title,
+                       person_dept AS ownerDept, person_name AS ownerName, check_deadline AS deadline,
+                       DATEDIFF(CURDATE(), check_deadline) AS overdueDays
+                FROM jc_conduct_issue
+                WHERE del_flag = '0' AND status NOT IN ('3','4')
+                  AND check_deadline IS NOT NULL AND check_deadline &lt; CURDATE()
+            </when>
+            <when test="module == 'asset'">
+                SELECT 'asset' AS moduleKey, '涉案财物' AS moduleName, asset_id AS bizId, item_name AS title,
+                       person_dept AS ownerDept, person_name AS ownerName, dispose_deadline AS deadline,
+                       DATEDIFF(CURDATE(), dispose_deadline) AS overdueDays
+                FROM jc_asset_info
+                WHERE del_flag = '0' AND status NOT IN ('3','4')
+                  AND dispose_deadline IS NOT NULL AND dispose_deadline &lt; CURDATE()
+            </when>
+            <otherwise>
+                SELECT 'petition' AS moduleKey, '信访举报' AS moduleName, petition_id AS bizId, title AS title,
+                       target_dept AS ownerDept, target_name AS ownerName, handle_deadline AS deadline,
+                       DATEDIFF(CURDATE(), handle_deadline) AS overdueDays
+                FROM jc_petition
+                WHERE del_flag = '0' AND status NOT IN ('6','7')
+                  AND handle_deadline IS NOT NULL AND handle_deadline &lt; CURDATE()
+                UNION ALL
+                SELECT 'rectify' AS moduleKey, '整改闭环' AS moduleName, issue_id AS bizId, title AS title,
+                       found_dept AS ownerDept, NULL AS ownerName, deadline AS deadline,
+                       DATEDIFF(CURDATE(), deadline) AS overdueDays
+                FROM jc_rectify_issue
+                WHERE del_flag = '0' AND status NOT IN ('3','4')
+                  AND deadline IS NOT NULL AND deadline &lt; CURDATE()
+                UNION ALL
+                SELECT 'reply' AS moduleKey, '廉政意见回复' AS moduleName, request_id AS bizId, matter_desc AS title,
+                       person_dept AS ownerDept, person_name AS ownerName,
+                       DATE_ADD(create_time, INTERVAL deadline_days DAY) AS deadline,
+                       DATEDIFF(CURDATE(), DATE_ADD(create_time, INTERVAL deadline_days DAY)) AS overdueDays
+                FROM jc_reply_request
+                WHERE del_flag = '0' AND status NOT IN ('2','3')
+                  AND deadline_days IS NOT NULL
+                  AND DATE_ADD(create_time, INTERVAL deadline_days DAY) &lt; CURDATE()
+                UNION ALL
+                SELECT 'conduct' AS moduleKey, '作风建设' AS moduleName, issue_id AS bizId, violation_desc AS title,
+                       person_dept AS ownerDept, person_name AS ownerName, check_deadline AS deadline,
+                       DATEDIFF(CURDATE(), check_deadline) AS overdueDays
+                FROM jc_conduct_issue
+                WHERE del_flag = '0' AND status NOT IN ('3','4')
+                  AND check_deadline IS NOT NULL AND check_deadline &lt; CURDATE()
+                UNION ALL
+                SELECT 'asset' AS moduleKey, '涉案财物' AS moduleName, asset_id AS bizId, item_name AS title,
+                       person_dept AS ownerDept, person_name AS ownerName, dispose_deadline AS deadline,
+                       DATEDIFF(CURDATE(), dispose_deadline) AS overdueDays
+                FROM jc_asset_info
+                WHERE del_flag = '0' AND status NOT IN ('3','4')
+                  AND dispose_deadline IS NOT NULL AND dispose_deadline &lt; CURDATE()
+                ORDER BY overdueDays DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 段12：部门维度办理效能（仅含带责任部门字段的 5 个模块；module 为空/未知时返回全部） -->
+    <select id="deptWorkload" parameterType="java.lang.String" resultType="com.jiancha.biz.dashboard.domain.DeptWorkload">
+        <choose>
+            <when test="module == 'petition'">
+                SELECT 'petition' AS moduleKey, '信访举报' AS moduleName, target_dept AS deptName,
+                       COUNT(*) AS total,
+                       SUM(CASE WHEN status NOT IN ('6','7') THEN 1 ELSE 0 END) AS processing,
+                       SUM(CASE WHEN status NOT IN ('6','7') AND handle_deadline IS NOT NULL AND handle_deadline &lt; CURDATE() THEN 1 ELSE 0 END) AS overdue
+                FROM jc_petition
+                WHERE del_flag = '0' AND target_dept IS NOT NULL AND target_dept &lt;&gt; ''
+                GROUP BY target_dept
+            </when>
+            <when test="module == 'rectify'">
+                SELECT 'rectify' AS moduleKey, '整改闭环' AS moduleName, found_dept AS deptName,
+                       COUNT(*) AS total,
+                       SUM(CASE WHEN status NOT IN ('3','4') THEN 1 ELSE 0 END) AS processing,
+                       SUM(CASE WHEN status NOT IN ('3','4') AND deadline IS NOT NULL AND deadline &lt; CURDATE() THEN 1 ELSE 0 END) AS overdue
+                FROM jc_rectify_issue
+                WHERE del_flag = '0' AND found_dept IS NOT NULL AND found_dept &lt;&gt; ''
+                GROUP BY found_dept
+            </when>
+            <when test="module == 'reply'">
+                SELECT 'reply' AS moduleKey, '廉政意见回复' AS moduleName, person_dept AS deptName,
+                       COUNT(*) AS total,
+                       SUM(CASE WHEN status NOT IN ('2','3') THEN 1 ELSE 0 END) AS processing,
+                       SUM(CASE WHEN status NOT IN ('2','3') AND deadline_days IS NOT NULL AND DATE_ADD(create_time, INTERVAL deadline_days DAY) &lt; CURDATE() THEN 1 ELSE 0 END) AS overdue
+                FROM jc_reply_request
+                WHERE del_flag = '0' AND person_dept IS NOT NULL AND person_dept &lt;&gt; ''
+                GROUP BY person_dept
+            </when>
+            <when test="module == 'conduct'">
+                SELECT 'conduct' AS moduleKey, '作风建设' AS moduleName, person_dept AS deptName,
+                       COUNT(*) AS total,
+                       SUM(CASE WHEN status NOT IN ('3','4') THEN 1 ELSE 0 END) AS processing,
+                       SUM(CASE WHEN status NOT IN ('3','4') AND check_deadline IS NOT NULL AND check_deadline &lt; CURDATE() THEN 1 ELSE 0 END) AS overdue
+                FROM jc_conduct_issue
+                WHERE del_flag = '0' AND person_dept IS NOT NULL AND person_dept &lt;&gt; ''
+                GROUP BY person_dept
+            </when>
+            <when test="module == 'asset'">
+                SELECT 'asset' AS moduleKey, '涉案财物' AS moduleName, person_dept AS deptName,
+                       COUNT(*) AS total,
+                       SUM(CASE WHEN status NOT IN ('3','4') THEN 1 ELSE 0 END) AS processing,
+                       SUM(CASE WHEN status NOT IN ('3','4') AND dispose_deadline IS NOT NULL AND dispose_deadline &lt; CURDATE() THEN 1 ELSE 0 END) AS overdue
+                FROM jc_asset_info
+                WHERE del_flag = '0' AND person_dept IS NOT NULL AND person_dept &lt;&gt; ''
+                GROUP BY person_dept
+            </when>
+            <otherwise>
+                SELECT 'petition' AS moduleKey, '信访举报' AS moduleName, target_dept AS deptName,
+                       COUNT(*) AS total,
+                       SUM(CASE WHEN status NOT IN ('6','7') THEN 1 ELSE 0 END) AS processing,
+                       SUM(CASE WHEN status NOT IN ('6','7') AND handle_deadline IS NOT NULL AND handle_deadline &lt; CURDATE() THEN 1 ELSE 0 END) AS overdue
+                FROM jc_petition
+                WHERE del_flag = '0' AND target_dept IS NOT NULL AND target_dept &lt;&gt; ''
+                GROUP BY target_dept
+                UNION ALL
+                SELECT 'rectify' AS moduleKey, '整改闭环' AS moduleName, found_dept AS deptName,
+                       COUNT(*),
+                       SUM(CASE WHEN status NOT IN ('3','4') THEN 1 ELSE 0 END),
+                       SUM(CASE WHEN status NOT IN ('3','4') AND deadline IS NOT NULL AND deadline &lt; CURDATE() THEN 1 ELSE 0 END)
+                FROM jc_rectify_issue
+                WHERE del_flag = '0' AND found_dept IS NOT NULL AND found_dept &lt;&gt; ''
+                GROUP BY found_dept
+                UNION ALL
+                SELECT 'reply' AS moduleKey, '廉政意见回复' AS moduleName, person_dept AS deptName,
+                       COUNT(*),
+                       SUM(CASE WHEN status NOT IN ('2','3') THEN 1 ELSE 0 END),
+                       SUM(CASE WHEN status NOT IN ('2','3') AND deadline_days IS NOT NULL AND DATE_ADD(create_time, INTERVAL deadline_days DAY) &lt; CURDATE() THEN 1 ELSE 0 END)
+                FROM jc_reply_request
+                WHERE del_flag = '0' AND person_dept IS NOT NULL AND person_dept &lt;&gt; ''
+                GROUP BY person_dept
+                UNION ALL
+                SELECT 'conduct' AS moduleKey, '作风建设' AS moduleName, person_dept AS deptName,
+                       COUNT(*),
+                       SUM(CASE WHEN status NOT IN ('3','4') THEN 1 ELSE 0 END),
+                       SUM(CASE WHEN status NOT IN ('3','4') AND check_deadline IS NOT NULL AND check_deadline &lt; CURDATE() THEN 1 ELSE 0 END)
+                FROM jc_conduct_issue
+                WHERE del_flag = '0' AND person_dept IS NOT NULL AND person_dept &lt;&gt; ''
+                GROUP BY person_dept
+                UNION ALL
+                SELECT 'asset' AS moduleKey, '涉案财物' AS moduleName, person_dept AS deptName,
+                       COUNT(*),
+                       SUM(CASE WHEN status NOT IN ('3','4') THEN 1 ELSE 0 END),
+                       SUM(CASE WHEN status NOT IN ('3','4') AND dispose_deadline IS NOT NULL AND dispose_deadline &lt; CURDATE() THEN 1 ELSE 0 END)
+                FROM jc_asset_info
+                WHERE del_flag = '0' AND person_dept IS NOT NULL AND person_dept &lt;&gt; ''
+                GROUP BY person_dept
+                ORDER BY moduleKey, overdue DESC
+            </otherwise>
+        </choose>
+    </select>
+
 </mapper>

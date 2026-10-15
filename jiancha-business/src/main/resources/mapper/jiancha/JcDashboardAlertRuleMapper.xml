@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.dashboard.mapper.JcDashboardAlertRuleMapper">
+
+    <resultMap id="AlertRuleResult" type="com.jiancha.biz.dashboard.domain.DashboardAlertRule">
+        <id column="rule_id" property="ruleId"/>
+        <result column="rule_name" property="ruleName"/>
+        <result column="module_key" property="moduleKey"/>
+        <result column="metric_type" property="metricType"/>
+        <result column="threshold" property="threshold"/>
+        <result column="alert_level" property="alertLevel"/>
+        <result column="enabled" property="enabled"/>
+        <result column="remark" property="remark"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        rule_id, rule_name, module_key, metric_type, threshold, alert_level, enabled, remark,
+        create_by, create_time, update_by, update_time
+    </sql>
+
+    <select id="selectList" parameterType="com.jiancha.biz.dashboard.domain.DashboardAlertRule" resultMap="AlertRuleResult">
+        SELECT <include refid="Base_Column_List"/>
+        FROM jc_dashboard_alert_rule
+        WHERE del_flag = '0'
+        <if test="ruleName != null and ruleName != ''">
+            AND rule_name LIKE CONCAT('%', #{ruleName}, '%')
+        </if>
+        <if test="moduleKey != null and moduleKey != ''">
+            AND module_key = #{moduleKey}
+        </if>
+        <if test="metricType != null and metricType != ''">
+            AND metric_type = #{metricType}
+        </if>
+        <if test="enabled != null and enabled != ''">
+            AND enabled = #{enabled}
+        </if>
+        ORDER BY rule_id
+    </select>
+
+    <select id="selectEnabled" resultMap="AlertRuleResult">
+        SELECT <include refid="Base_Column_List"/>
+        FROM jc_dashboard_alert_rule
+        WHERE del_flag = '0' AND enabled = '1'
+        ORDER BY rule_id
+    </select>
+
+    <select id="selectById" parameterType="java.lang.Long" resultMap="AlertRuleResult">
+        SELECT <include refid="Base_Column_List"/>
+        FROM jc_dashboard_alert_rule
+        WHERE rule_id = #{ruleId} AND del_flag = '0'
+    </select>
+
+    <insert id="insert" parameterType="com.jiancha.biz.dashboard.domain.DashboardAlertRule" useGeneratedKeys="true" keyProperty="ruleId">
+        INSERT INTO jc_dashboard_alert_rule
+            (rule_name, module_key, metric_type, threshold, alert_level, enabled, remark,
+             create_by, create_time)
+        VALUES
+            (#{ruleName}, #{moduleKey}, #{metricType}, #{threshold}, #{alertLevel}, #{enabled}, #{remark},
+             #{createBy}, NOW())
+    </insert>
+
+    <update id="update" parameterType="com.jiancha.biz.dashboard.domain.DashboardAlertRule">
+        UPDATE jc_dashboard_alert_rule
+        <set>
+            <if test="ruleName != null and ruleName != ''">rule_name = #{ruleName},</if>
+            <if test="moduleKey != null and moduleKey != ''">module_key = #{moduleKey},</if>
+            <if test="metricType != null and metricType != ''">metric_type = #{metricType},</if>
+            <if test="threshold != null">threshold = #{threshold},</if>
+            <if test="alertLevel != null and alertLevel != ''">alert_level = #{alertLevel},</if>
+            <if test="enabled != null and enabled != ''">enabled = #{enabled},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_by = #{updateBy},
+            update_time = NOW()
+        </set>
+        WHERE rule_id = #{ruleId} AND del_flag = '0'
+    </update>
+
+    <update id="deleteByIds" parameterType="java.util.List">
+        UPDATE jc_dashboard_alert_rule
+        SET del_flag = '2', update_time = NOW()
+        WHERE rule_id IN
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+</mapper>

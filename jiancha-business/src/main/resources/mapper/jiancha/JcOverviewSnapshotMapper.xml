@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.dashboard.mapper.JcOverviewSnapshotMapper">
+
+    <!-- 插入或按 snapshot_date 更新（幂等，重复执行不会重复插行） -->
+    <insert id="insertOrUpdate" parameterType="com.jiancha.biz.dashboard.domain.OverviewSnapshot"
+            useGeneratedKeys="true" keyProperty="snapshotId" keyColumn="snapshot_id">
+        INSERT INTO jc_dashboard_snapshot
+            (snapshot_date, petition_total, petition_processing, petition_overdue,
+             rectify_total, rectify_processing, rectify_overdue,
+             risk_total, risk_processing,
+             supplier_total, supplier_black,
+             edu_total, edu_done,
+             reply_total, reply_processing, reply_overdue,
+             conduct_total, conduct_processing, conduct_overdue,
+             asset_total, asset_processing, asset_overdue,
+             total_processing, total_overdue, light_level,
+             create_by, create_time, update_by, update_time, remark)
+        VALUES
+            (#{snapshotDate}, #{petitionTotal}, #{petitionProcessing}, #{petitionOverdue},
+             #{rectifyTotal}, #{rectifyProcessing}, #{rectifyOverdue},
+             #{riskTotal}, #{riskProcessing},
+             #{supplierTotal}, #{supplierBlack},
+             #{eduTotal}, #{eduDone},
+             #{replyTotal}, #{replyProcessing}, #{replyOverdue},
+             #{conductTotal}, #{conductProcessing}, #{conductOverdue},
+             #{assetTotal}, #{assetProcessing}, #{assetOverdue},
+             #{totalProcessing}, #{totalOverdue}, #{lightLevel},
+             #{createBy}, NOW(), #{updateBy}, NOW(), #{remark})
+        ON DUPLICATE KEY UPDATE
+             petition_total = VALUES(petition_total),
+             petition_processing = VALUES(petition_processing),
+             petition_overdue = VALUES(petition_overdue),
+             rectify_total = VALUES(rectify_total),
+             rectify_processing = VALUES(rectify_processing),
+             rectify_overdue = VALUES(rectify_overdue),
+             risk_total = VALUES(risk_total),
+             risk_processing = VALUES(risk_processing),
+             supplier_total = VALUES(supplier_total),
+             supplier_black = VALUES(supplier_black),
+             edu_total = VALUES(edu_total),
+             edu_done = VALUES(edu_done),
+             reply_total = VALUES(reply_total),
+             reply_processing = VALUES(reply_processing),
+             reply_overdue = VALUES(reply_overdue),
+             conduct_total = VALUES(conduct_total),
+             conduct_processing = VALUES(conduct_processing),
+             conduct_overdue = VALUES(conduct_overdue),
+             asset_total = VALUES(asset_total),
+             asset_processing = VALUES(asset_processing),
+             asset_overdue = VALUES(asset_overdue),
+             total_processing = VALUES(total_processing),
+             total_overdue = VALUES(total_overdue),
+             light_level = VALUES(light_level),
+             update_by = VALUES(update_by),
+             update_time = NOW(),
+             remark = VALUES(remark)
+    </insert>
+
+    <!-- 最新一条快照 -->
+    <select id="selectLatest" resultType="com.jiancha.biz.dashboard.domain.OverviewSnapshot">
+        SELECT snapshot_id AS snapshotId, snapshot_date AS snapshotDate, petition_total AS petitionTotal, petition_processing AS petitionProcessing, petition_overdue AS petitionOverdue,
+               rectify_total AS rectifyTotal, rectify_processing AS rectifyProcessing, rectify_overdue AS rectifyOverdue,
+               risk_total AS riskTotal, risk_processing AS riskProcessing,
+               supplier_total AS supplierTotal, supplier_black AS supplierBlack,
+               edu_total AS eduTotal, edu_done AS eduDone,
+               reply_total AS replyTotal, reply_processing AS replyProcessing, reply_overdue AS replyOverdue,
+               conduct_total AS conductTotal, conduct_processing AS conductProcessing, conduct_overdue AS conductOverdue,
+               asset_total AS assetTotal, asset_processing AS assetProcessing, asset_overdue AS assetOverdue,
+               total_processing AS totalProcessing, total_overdue AS totalOverdue, light_level AS lightLevel,
+               create_by AS createBy, create_time AS createTime, update_by AS updateBy, update_time AS updateTime, remark
+        FROM jc_dashboard_snapshot
+        ORDER BY snapshot_date DESC
+        LIMIT 1
+    </select>
+
+    <!-- 最近 30 条快照（倒序） -->
+    <select id="selectHistory" resultType="com.jiancha.biz.dashboard.domain.OverviewSnapshot">
+        SELECT snapshot_id AS snapshotId, snapshot_date AS snapshotDate, petition_total AS petitionTotal, petition_processing AS petitionProcessing, petition_overdue AS petitionOverdue,
+               rectify_total AS rectifyTotal, rectify_processing AS rectifyProcessing, rectify_overdue AS rectifyOverdue,
+               risk_total AS riskTotal, risk_processing AS riskProcessing,
+               supplier_total AS supplierTotal, supplier_black AS supplierBlack,
+               edu_total AS eduTotal, edu_done AS eduDone,
+               reply_total AS replyTotal, reply_processing AS replyProcessing, reply_overdue AS replyOverdue,
+               conduct_total AS conductTotal, conduct_processing AS conductProcessing, conduct_overdue AS conductOverdue,
+               asset_total AS assetTotal, asset_processing AS assetProcessing, asset_overdue AS assetOverdue,
+               total_processing AS totalProcessing, total_overdue AS totalOverdue, light_level AS lightLevel,
+               create_by AS createBy, create_time AS createTime, update_by AS updateBy, update_time AS updateTime, remark
+        FROM jc_dashboard_snapshot
+        ORDER BY snapshot_date DESC
+        LIMIT 30
+    </select>
+
+</mapper>

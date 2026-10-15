@@ -37,4 +37,18 @@ public class DashboardOverview implements Serializable {
 
     /** 文书生成月度趋势 */
     private List<MonthCount> reportMonthly;
+
+    /* ===================== 段12 纪检综合看板：P8 模块聚合 ===================== */
+
+    /** P8 模块指标卡（含跨模块汇总与整体灯色） */
+    private DashboardCards moduleCards;
+
+    /** 各模块运行统计（总量 / 在办 / 已办结 / 超期） */
+    private List<ModuleStat> moduleStats;
+
+    /** 各模块红黄绿灯 */
+    private List<ModuleLight> lights;
+
+    /** 最新一次每日快照（无则为 null） */
+    private OverviewSnapshot snapshot;
 }

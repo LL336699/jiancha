@@ -40,4 +40,58 @@ public class DashboardCards implements Serializable {
 
     /** 利益冲突申报数 */
     private Long conflictTotal;
+
+    /* ===================== 段12 纪检综合看板：P8 八大模块 ===================== */
+
+    /** 信访举报：总量 / 在办 / 已办结 / 超期 */
+    private Long petitionTotal;
+    private Long petitionProcessing;
+    private Long petitionDone;
+    private Long petitionOverdue;
+
+    /** 整改闭环：总量 / 在办 / 已办结 / 超期 */
+    private Long rectifyTotal;
+    private Long rectifyProcessing;
+    private Long rectifyDone;
+    private Long rectifyOverdue;
+
+    /** 廉政风控：总量 / 在办 / 已办结 */
+    private Long riskTotal;
+    private Long riskProcessing;
+    private Long riskDone;
+
+    /** 供应商廉洁：总量 / 黑名单(含禁入) */
+    private Long supplierTotal;
+    private Long supplierBlack;
+
+    /** 廉政教育：总量 / 已完卷(已交卷+已评分+弃考) */
+    private Long eduTotal;
+    private Long eduDone;
+
+    /** 廉政意见回复：总量 / 在办 / 已办结 / 超期 */
+    private Long replyTotal;
+    private Long replyProcessing;
+    private Long replyDone;
+    private Long replyOverdue;
+
+    /** 作风建设：总量 / 在办 / 已办结 / 超期 */
+    private Long conductTotal;
+    private Long conductProcessing;
+    private Long conductDone;
+    private Long conductOverdue;
+
+    /** 涉案财物：总量 / 在办 / 已办结 / 超期 */
+    private Long assetTotal;
+    private Long assetProcessing;
+    private Long assetDone;
+    private Long assetOverdue;
+
+    /** 在办合计（跨模块） */
+    private Long totalProcessing;
+
+    /** 超期合计（跨模块） */
+    private Long totalOverdue;
+
+    /** 整体灯色：red / yellow / green */
+    private String lightLevel;
 }
