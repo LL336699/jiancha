@@ -19,4 +19,10 @@ public interface IJcConflictItemService
     int updateJcConflictItem(JcConflictItem item);
 
     int deleteJcConflictItemByItemId(Long itemId);
+
+    /** 段15：批量插入申报事项明细 */
+    int batchInsert(List<JcConflictItem> items);
+
+    /** 段15：按申报单全量替换事项明细（先逻辑删除旧明细再批量插入） */
+    int replaceItems(Long declareId, List<JcConflictItem> items);
 }

@@ -3,6 +3,7 @@ package com.jiancha.biz.archive.service.impl;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.jiancha.biz.archive.domain.JcConflictItem;
 import com.jiancha.biz.archive.mapper.JcConflictItemMapper;
 import com.jiancha.biz.archive.service.IJcConflictItemService;
@@ -46,5 +47,23 @@ public class JcConflictItemServiceImpl implements IJcConflictItemService
     public int deleteJcConflictItemByItemId(Long itemId)
     {
         return itemMapper.deleteJcConflictItemByItemId(itemId);
+    }
+
+    @Override
+    public int batchInsert(List<JcConflictItem> items)
+    {
+        if (items == null || items.isEmpty())
+        {
+            return 0;
+        }
+        return itemMapper.batchInsert(items);
+    }
+
+    @Override
+    @Transactional
+    public int replaceItems(Long declareId, List<JcConflictItem> items)
+    {
+        itemMapper.deleteByDeclareId(declareId);
+        return batchInsert(items);
     }
 }
