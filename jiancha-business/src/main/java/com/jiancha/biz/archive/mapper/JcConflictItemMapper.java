@@ -27,4 +27,7 @@ public interface JcConflictItemMapper
 
     /** 删除申报单下全部明细 */
     int deleteByDeclareId(Long declareId);
+
+    /** 段15：批量插入申报事项明细（一次提交申报单全部事项） */
+    int batchInsert(List<JcConflictItem> items);
 }

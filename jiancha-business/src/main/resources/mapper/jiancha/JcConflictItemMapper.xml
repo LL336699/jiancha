@@ -18,24 +18,30 @@
         <result property="updateBy"       column="update_by"/>
         <result property="updateTime"     column="update_time"/>
         <result property="remark"         column="remark"/>
+        <result property="supplierBlack"  column="supplier_black"/>
+        <result property="supplierStatus" column="supplier_status"/>
     </resultMap>
 
     <sql id="selectItemVo">
-        select item_id, declare_id, item_type, item_desc, ent_name, ent_credit_code, hold_ratio,
-               relation_person, is_conflict, handle_advice, create_by, create_time, update_by,
-               update_time, del_flag, remark
-        from jc_conflict_item
+        select i.item_id, i.declare_id, i.item_type, i.item_desc, i.ent_name, i.ent_credit_code, i.hold_ratio,
+               i.relation_person, i.is_conflict, i.handle_advice, i.create_by, i.create_time, i.update_by,
+               i.update_time, i.remark,
+               case when s.supplier_id is not null and s.status in ('3', '4') then '1' else '0' end as supplier_black,
+               s.status as supplier_status
+        from jc_conflict_item i
+        left join jc_supplier s on s.del_flag = '0'
+             and (s.credit_code = i.ent_credit_code or s.supplier_name = i.ent_name)
     </sql>
 
     <select id="selectByDeclareId" parameterType="Long" resultMap="JcConflictItemResult">
         <include refid="selectItemVo"/>
-        where declare_id = #{declareId} and del_flag = '0'
-        order by item_id
+        where i.declare_id = #{declareId} and i.del_flag = '0'
+        order by i.item_id
     </select>
 
     <select id="selectByItemId" parameterType="Long" resultMap="JcConflictItemResult">
         <include refid="selectItemVo"/>
-        where item_id = #{itemId} and del_flag = '0'
+        where i.item_id = #{itemId} and i.del_flag = '0'
     </select>
 
     <insert id="insertJcConflictItem" parameterType="com.jiancha.biz.archive.domain.JcConflictItem" useGeneratedKeys="true" keyProperty="itemId">
@@ -97,5 +103,29 @@
     <update id="deleteByDeclareId" parameterType="Long">
         update jc_conflict_item set del_flag = '2', update_time = sysdate() where declare_id = #{declareId}
     </update>
+
+    <!-- 段15：批量插入申报事项明细（申报单+事项一次提交） -->
+    <insert id="batchInsert" parameterType="java.util.List">
+        insert into jc_conflict_item (
+            declare_id, item_type, item_desc, ent_name, ent_credit_code, hold_ratio,
+            relation_person, is_conflict, handle_advice, create_by, remark, create_time
+        ) values
+        <foreach collection="list" item="it" separator=",">
+            (
+            #{it.declareId},
+            #{it.itemType},
+            #{it.itemDesc},
+            #{it.entName},
+            #{it.entCreditCode},
+            #{it.holdRatio},
+            #{it.relationPerson},
+            #{it.isConflict},
+            #{it.handleAdvice},
+            #{it.createBy},
+            #{it.remark},
+            sysdate()
+            )
+        </foreach>
+    </insert>
 
 </mapper>

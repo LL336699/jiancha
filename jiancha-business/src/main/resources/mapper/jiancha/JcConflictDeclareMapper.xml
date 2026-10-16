@@ -17,36 +17,56 @@
         <result property="updateBy"     column="update_by"/>
         <result property="updateTime"   column="update_time"/>
         <result property="remark"       column="remark"/>
+        <result property="personName"   column="person_name"/>
+        <result property="personDept"   column="person_dept"/>
+    </resultMap>
+
+    <!-- 段15：未申报人员结果映射（驼峰映射关闭，须显式声明） -->
+    <resultMap id="UnDeclaredPersonResult" type="com.jiancha.biz.archive.domain.JcPerson">
+        <id     property="personId"        column="person_id"/>
+        <result property="personCode"     column="person_code"/>
+        <result property="name"           column="name"/>
+        <result property="deptId"         column="dept_id"/>
+        <result property="deptPath"       column="dept_path"/>
+        <result property="position"       column="position"/>
+        <result property="status"         column="status"/>
+        <result property="riskLevel"      column="risk_level"/>
     </resultMap>
 
     <sql id="selectDeclareVo">
-        select declare_id, person_id, declare_type, declare_year, declare_date, status,
-               verify_by, verify_time, verify_result, create_by, create_time, update_by,
-               update_time, del_flag, remark
-        from jc_conflict_declare
+        select d.declare_id, d.person_id, d.declare_type, d.declare_year, d.declare_date, d.status,
+               d.verify_by, d.verify_time, d.verify_result, d.create_by, d.create_time, d.update_by,
+               d.update_time, d.remark, p.name as person_name, p.dept_path as person_dept
+        from jc_conflict_declare d
+        left join jc_person p on p.person_id = d.person_id and p.del_flag = '0'
+    </sql>
+
+    <sql id="declareWhere">
+        <where>
+            d.del_flag = '0'
+            <if test="personId != null">and d.person_id = #{personId}</if>
+            <if test="declareType != null and declareType != ''">and d.declare_type = #{declareType}</if>
+            <if test="declareYear != null">and d.declare_year = #{declareYear}</if>
+            <if test="status != null and status != ''">and d.status = #{status}</if>
+            <if test="personName != null and personName != ''">and p.name like concat('%', #{personName}, '%')</if>
+        </where>
     </sql>
 
     <select id="selectJcConflictDeclareList" parameterType="com.jiancha.biz.archive.domain.JcConflictDeclare" resultMap="JcConflictDeclareResult">
         <include refid="selectDeclareVo"/>
-        <where>
-            del_flag = '0'
-            <if test="personId != null">and person_id = #{personId}</if>
-            <if test="declareType != null and declareType != ''">and declare_type = #{declareType}</if>
-            <if test="declareYear != null">and declare_year = #{declareYear}</if>
-            <if test="status != null and status != ''">and status = #{status}</if>
-        </where>
-        order by declare_id desc
+        <include refid="declareWhere"/>
+        order by d.declare_id desc
     </select>
 
     <select id="selectByPersonId" parameterType="Long" resultMap="JcConflictDeclareResult">
         <include refid="selectDeclareVo"/>
-        where person_id = #{personId} and del_flag = '0'
-        order by declare_year desc, declare_id desc
+        where d.person_id = #{personId} and d.del_flag = '0'
+        order by d.declare_year desc, d.declare_id desc
     </select>
 
     <select id="selectByDeclareId" parameterType="Long" resultMap="JcConflictDeclareResult">
         <include refid="selectDeclareVo"/>
-        where declare_id = #{declareId} and del_flag = '0'
+        where d.declare_id = #{declareId} and d.del_flag = '0'
     </select>
 
     <insert id="insertJcConflictDeclare" parameterType="com.jiancha.biz.archive.domain.JcConflictDeclare" useGeneratedKeys="true" keyProperty="declareId">
@@ -101,5 +121,89 @@
     <update id="deleteJcConflictDeclareByDeclareId" parameterType="Long">
         update jc_conflict_declare set del_flag = '2', update_time = sysdate() where declare_id = #{declareId}
     </update>
+
+    <!-- 段15：年度申报总量 -->
+    <select id="countByYear" parameterType="int" resultType="java.lang.Long">
+        select count(*) from jc_conflict_declare where del_flag = '0' and declare_year = #{year}
+    </select>
+
+    <!-- 段15：年度状态分布 -->
+    <select id="statByStatus" parameterType="int" resultType="com.jiancha.biz.archive.domain.ConflictNameValue">
+        select status as name, count(*) as value
+        from jc_conflict_declare
+        where del_flag = '0' and declare_year = #{year}
+        group by status
+        order by value desc
+    </select>
+
+    <!-- 段15：年度申报类型分布 -->
+    <select id="statByType" parameterType="int" resultType="com.jiancha.biz.archive.domain.ConflictNameValue">
+        select declare_type as name, count(*) as value
+        from jc_conflict_declare
+        where del_flag = '0' and declare_year = #{year}
+        group by declare_type
+        order by value desc
+    </select>
+
+    <!-- 段15：年度月度申报趋势（YYYY-MM） -->
+    <select id="statByMonth" parameterType="int" resultType="com.jiancha.biz.archive.domain.ConflictNameValue">
+        select date_format(coalesce(declare_date, create_time), '%Y-%m') as name, count(*) as value
+        from jc_conflict_declare
+        where del_flag = '0' and declare_year = #{year}
+        group by name
+        order by name
+    </select>
+
+    <!-- 段15：年度含利益冲突事项的申报单数 -->
+    <select id="countConflictDeclares" parameterType="int" resultType="java.lang.Long">
+        select count(distinct d.declare_id)
+        from jc_conflict_declare d
+        join jc_conflict_item i on i.declare_id = d.declare_id and i.del_flag = '0' and i.is_conflict = '1'
+        where d.del_flag = '0' and d.declare_year = #{year}
+    </select>
+
+    <!-- 段15：年度命中供应商黑名单/禁入的申报事项数 -->
+    <select id="countBlacklistItems" parameterType="int" resultType="java.lang.Long">
+        select count(distinct i.item_id)
+        from jc_conflict_declare d
+        join jc_conflict_item i on i.declare_id = d.declare_id and i.del_flag = '0'
+        join jc_supplier s on s.del_flag = '0' and s.status in ('3', '4')
+             and (s.credit_code = i.ent_credit_code or s.supplier_name = i.ent_name)
+        where d.del_flag = '0' and d.declare_year = #{year}
+    </select>
+
+    <!-- 段15：该年度无任何申报的在岗人员（集中申报进度） -->
+    <select id="selectUnDeclared" parameterType="int" resultMap="UnDeclaredPersonResult">
+        select person_id, person_code, name, dept_id, dept_path, position, status, risk_level
+        from jc_person p
+        where p.del_flag = '0' and p.status = '在岗'
+          and not exists (
+              select 1 from jc_conflict_declare d
+              where d.person_id = p.person_id and d.del_flag = '0' and d.declare_year = #{year}
+          )
+        order by p.dept_id, p.person_id
+    </select>
+
+    <!-- 段15：按人员维度聚合（重点关注人员 Top） -->
+    <select id="statByPerson" parameterType="int" resultType="java.util.HashMap">
+        select p.name as personName, p.dept_path as personDept,
+               count(distinct d.declare_id) as declareCount,
+               count(distinct i.item_id) as itemCount,
+               count(distinct case when i.is_conflict = '1' then i.item_id end) as conflictItems
+        from jc_conflict_declare d
+        join jc_person p on p.person_id = d.person_id and p.del_flag = '0'
+        left join jc_conflict_item i on i.declare_id = d.declare_id and i.del_flag = '0'
+        where d.del_flag = '0' and d.declare_year = #{year}
+        group by p.person_id, p.name, p.dept_path
+        order by conflictItems desc, declareCount desc
+        limit 10
+    </select>
+
+    <!-- 段15：年度申报清单全量导出（联表人员，不分页） -->
+    <select id="selectDeclareForExport" parameterType="int" resultMap="JcConflictDeclareResult">
+        <include refid="selectDeclareVo"/>
+        where d.del_flag = '0' and d.declare_year = #{year}
+        order by d.declare_id desc
+    </select>
 
 </mapper>

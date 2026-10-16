@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.archive.mapper.JcDeclareConfigMapper">
+
+    <resultMap id="JcDeclareConfigResult" type="com.jiancha.biz.archive.domain.JcDeclareConfig">
+        <id     property="configId"     column="config_id"/>
+        <result property="declareYear"  column="declare_year"/>
+        <result property="deadline"     column="deadline"/>
+        <result property="enabled"      column="enabled"/>
+        <result property="createBy"     column="create_by"/>
+        <result property="createTime"   column="create_time"/>
+        <result property="updateBy"     column="update_by"/>
+        <result property="updateTime"   column="update_time"/>
+        <result property="remark"       column="remark"/>
+    </resultMap>
+
+    <sql id="selectConfigVo">
+        select config_id, declare_year, deadline, enabled, create_by, create_time,
+               update_by, update_time, remark
+        from jc_declare_config
+    </sql>
+
+    <select id="selectJcDeclareConfigList" parameterType="com.jiancha.biz.archive.domain.JcDeclareConfig" resultMap="JcDeclareConfigResult">
+        <include refid="selectConfigVo"/>
+        <where>
+            <if test="declareYear != null">and declare_year = #{declareYear}</if>
+            <if test="enabled != null and enabled != ''">and enabled = #{enabled}</if>
+        </where>
+        order by declare_year desc
+    </select>
+
+    <select id="selectByYear" parameterType="int" resultMap="JcDeclareConfigResult">
+        <include refid="selectConfigVo"/>
+        where declare_year = #{year} and enabled = '1'
+    </select>
+
+    <select id="selectByConfigId" parameterType="Long" resultMap="JcDeclareConfigResult">
+        <include refid="selectConfigVo"/>
+        where config_id = #{configId}
+    </select>
+
+    <insert id="insertJcDeclareConfig" parameterType="com.jiancha.biz.archive.domain.JcDeclareConfig" useGeneratedKeys="true" keyProperty="configId">
+        insert into jc_declare_config (
+            <trim suffixOverrides=",">
+                <if test="declareYear != null">declare_year,</if>
+                <if test="deadline != null">deadline,</if>
+                <if test="enabled != null and enabled != ''">enabled,</if>
+                <if test="createBy != null and createBy != ''">create_by,</if>
+                <if test="remark != null and remark != ''">remark,</if>
+                create_time
+            </trim>
+        ) values (
+            <trim suffixOverrides=",">
+                <if test="declareYear != null">#{declareYear},</if>
+                <if test="deadline != null">#{deadline},</if>
+                <if test="enabled != null and enabled != ''">#{enabled},</if>
+                <if test="createBy != null and createBy != ''">#{createBy},</if>
+                <if test="remark != null and remark != ''">#{remark},</if>
+                sysdate()
+            </trim>
+        )
+    </insert>
+
+    <update id="updateJcDeclareConfig" parameterType="com.jiancha.biz.archive.domain.JcDeclareConfig">
+        update jc_declare_config
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="declareYear != null">declare_year = #{declareYear},</if>
+            <if test="deadline != null">deadline = #{deadline},</if>
+            <if test="enabled != null and enabled != ''">enabled = #{enabled},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate()
+        </trim>
+        where config_id = #{configId}
+    </update>
+
+    <update id="deleteJcDeclareConfigByConfigId" parameterType="Long">
+        delete from jc_declare_config where config_id = #{configId}
+    </update>
+
+</mapper>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.archive.mapper.JcConflictLogMapper">
+
+    <resultMap id="JcConflictLogResult" type="com.jiancha.biz.archive.domain.JcConflictLog">
+        <id     property="logId"      column="log_id"/>
+        <result property="declareId"  column="declare_id"/>
+        <result property="action"     column="action"/>
+        <result property="detail"     column="detail"/>
+        <result property="operator"   column="operator"/>
+        <result property="operateTime" column="operate_time"/>
+    </resultMap>
+
+    <select id="selectByDeclareId" parameterType="Long" resultMap="JcConflictLogResult">
+        select log_id, declare_id, action, detail, operator, operate_time
+        from jc_conflict_log
+        where declare_id = #{declareId}
+        order by operate_time asc, log_id asc
+    </select>
+
+    <insert id="insertJcConflictLog" parameterType="com.jiancha.biz.archive.domain.JcConflictLog" useGeneratedKeys="true" keyProperty="logId">
+        insert into jc_conflict_log (declare_id, action, detail, operator, operate_time)
+        values (#{declareId}, #{action}, #{detail}, #{operator}, sysdate())
+    </insert>
+
+</mapper>

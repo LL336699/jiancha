@@ -1,6 +1,7 @@
 package com.jiancha.biz.archive.domain;
 
 import java.util.Date;
+import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
 
 /**
@@ -16,21 +17,32 @@ public class JcConflictDeclare extends BaseEntity
 {
     private static final long serialVersionUID = 1L;
 
+    @Excel(name = "申报单号")
     private Long declareId;
     private Long personId;
+    @Excel(name = "申报人")
+    private String personName;
+    @Excel(name = "所在部门")
+    private String personDept;
     /** 申报类型（字典 jc_declare_type：年度/事项/专项） */
+    @Excel(name = "申报类型")
     private String declareType;
     /** 申报年度 */
+    @Excel(name = "申报年度")
     private Integer declareYear;
     /** 申报日期 */
+    @Excel(name = "申报日期", dateFormat = "yyyy-MM-dd")
     private Date declareDate;
     /** 状态（字典 jc_declare_status：草稿/待核实/已核实/存疑） */
+    @Excel(name = "状态")
     private String status;
     /** 核实人 */
+    @Excel(name = "核实人")
     private String verifyBy;
     /** 核实时间 */
     private Date verifyTime;
     /** 核实结论 */
+    @Excel(name = "核实结论")
     private String verifyResult;
 
     public Long getDeclareId() { return declareId; }
@@ -51,4 +63,8 @@ public class JcConflictDeclare extends BaseEntity
     public void setVerifyTime(Date verifyTime) { this.verifyTime = verifyTime; }
     public String getVerifyResult() { return verifyResult; }
     public void setVerifyResult(String verifyResult) { this.verifyResult = verifyResult; }
+    public String getPersonName() { return personName; }
+    public void setPersonName(String personName) { this.personName = personName; }
+    public String getPersonDept() { return personDept; }
+    public void setPersonDept(String personDept) { this.personDept = personDept; }
 }

@@ -1,6 +1,7 @@
 package com.jiancha.biz.archive.domain;
 
 import java.math.BigDecimal;
+import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
 
 /**
@@ -15,21 +16,35 @@ public class JcConflictItem extends BaseEntity
     private Long itemId;
     private Long declareId;
     /** 事项类型（字典 jc_conflict_item_type：经商办企业/兼职取酬/亲属从业/对外投资/关联交易/劳务报酬/其他） */
+    @Excel(name = "事项类型")
     private String itemType;
     /** 事项描述 */
+    @Excel(name = "事项描述", width = 40)
     private String itemDesc;
     /** 关联企业/经营主体名称 */
+    @Excel(name = "关联企业")
     private String entName;
     /** 统一社会信用代码 */
+    @Excel(name = "统一社会信用代码", width = 30)
     private String entCreditCode;
     /** 持股/出资比例(%) */
+    @Excel(name = "持股比例(%)")
     private BigDecimal holdRatio;
     /** 涉及关联人 */
+    @Excel(name = "涉及关联人")
     private String relationPerson;
     /** 是否构成利益冲突（0否 1是） */
+    @Excel(name = "是否冲突", readConverterExp = "0=否,1=是")
     private String isConflict;
     /** 处置建议 */
+    @Excel(name = "处置建议", width = 30)
     private String handleAdvice;
+    /** 涉及企业是否命中供应商黑名单/禁入（0否 1是，联表 jc_supplier 展示，不落库） */
+    @Excel(name = "黑名单命中", readConverterExp = "0=否,1=是")
+    private String supplierBlack;
+    /** 命中供应商的库内状态（联表展示，不落库） */
+    @Excel(name = "供应商库状态")
+    private String supplierStatus;
 
     public Long getItemId() { return itemId; }
     public void setItemId(Long itemId) { this.itemId = itemId; }
@@ -51,4 +66,8 @@ public class JcConflictItem extends BaseEntity
     public void setIsConflict(String isConflict) { this.isConflict = isConflict; }
     public String getHandleAdvice() { return handleAdvice; }
     public void setHandleAdvice(String handleAdvice) { this.handleAdvice = handleAdvice; }
+    public String getSupplierBlack() { return supplierBlack; }
+    public void setSupplierBlack(String supplierBlack) { this.supplierBlack = supplierBlack; }
+    public String getSupplierStatus() { return supplierStatus; }
+    public void setSupplierStatus(String supplierStatus) { this.supplierStatus = supplierStatus; }
 }
