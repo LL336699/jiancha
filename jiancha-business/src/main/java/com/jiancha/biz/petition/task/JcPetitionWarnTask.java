@@ -31,4 +31,13 @@ public class JcPetitionWarnTask {
         int changed = petitionService.refreshWarnLevel();
         log.info("[举报预警扫描] 完成，预警级别变更 {} 条", changed);
     }
+
+    /**
+     * 超期自动催办（段16）：扫描超期且从未催办的举报，由系统催办一次并写轨迹。
+     * 建议与预警扫描同批调度：调用目标 {@code jcPetitionWarnTask.autoUrgeOverdue()}。
+     */
+    public void autoUrgeOverdue() {
+        int count = petitionService.autoUrgeOverdue();
+        log.info("[举报超期自动催办] 完成，系统催办 {} 件", count);
+    }
 }

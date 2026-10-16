@@ -34,6 +34,7 @@ import com.jiancha.biz.petition.domain.PetitionStatItem;
 import com.jiancha.biz.petition.domain.PetitionSubmitRequest;
 import com.jiancha.biz.petition.mapper.JcPetitionMapper;
 import com.jiancha.biz.petition.mapper.JcPetitionMaterialMapper;
+import com.jiancha.biz.petition.mapper.JcPetitionMessageMapper;
 import com.jiancha.biz.petition.mapper.JcPetitionTraceMapper;
 import com.jiancha.biz.petition.security.PetitionRateLimiter;
 import com.jiancha.biz.petition.service.IJcPetitionService;
@@ -91,6 +92,18 @@ public class JcPetitionServiceImpl implements IJcPetitionService {
     public static final String ACT_ARCHIVE   = "archive";
     /** 动作：不予受理 */
     public static final String ACT_REJECT    = "reject";
+    /** 动作：催办（段16，事实型留痕，不改变状态） */
+    public static final String ACT_URGE      = "urge";
+    /** 动作：举报人满意度评价（段16，事实型留痕） */
+    public static final String ACT_RATE      = "rate";
+    /** 动作：举报人留言（段16，事实型留痕） */
+    public static final String ACT_MESSAGE   = "message";
+    /** 动作：受理人回复留言（段16，事实型留痕） */
+    public static final String ACT_REPLY     = "reply";
+    /** 动作：并案（段16，事实型留痕） */
+    public static final String ACT_MERGE     = "merge";
+    /** 动作：解除并案（段16，事实型留痕） */
+    public static final String ACT_UNMERGE   = "unmerge";
 
     /** 动作 -> 目标状态（严格单向） */
     private static final Map<String, String> ACTION_TARGET = new LinkedHashMap<>();
@@ -143,6 +156,9 @@ public class JcPetitionServiceImpl implements IJcPetitionService {
 
     @Autowired
     private JcPetitionMaterialMapper materialMapper;
+
+    @Autowired
+    private JcPetitionMessageMapper messageMapper;
 
     @Autowired
     private IJcClueService clueService;
@@ -378,6 +394,7 @@ public class JcPetitionServiceImpl implements IJcPetitionService {
     public int deleteJcPetitionByPetitionId(Long petitionId) {
         traceMapper.deleteTraceByPetitionId(petitionId);
         materialMapper.deleteMaterialByPetitionId(petitionId);
+        messageMapper.deleteMessageByPetitionId(petitionId); // 段16：级联清理留言
         return petitionMapper.deleteJcPetitionByPetitionId(petitionId);
     }
 
@@ -390,6 +407,177 @@ public class JcPetitionServiceImpl implements IJcPetitionService {
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.DAY_OF_MONTH, -days);
         return petitionMapper.selectRecentByTarget(targetName.trim(), cal.getTime());
+    }
+
+    // ═══════════════════════ 段16：留言轨迹/催办/督办/评价 ═══════════════════════
+
+    @Override
+    public void appendTrace(Long petitionId, String action, String actionDesc,
+                            String fromStatus, String toStatus, String operator) {
+        writeTrace(petitionId, action, actionDesc, fromStatus, toStatus, operator);
+    }
+
+    @Override
+    @Transactional
+    public JcPetition urge(Long petitionId, String opinion, String operator) {
+        JcPetition petition = petitionMapper.selectJcPetitionByPetitionId(petitionId);
+        if (petition == null) {
+            throw new ServiceException("举报不存在或已删除");
+        }
+        if (STATUS_ARCHIVED.equals(petition.getStatus()) || STATUS_REJECTED.equals(petition.getStatus())) {
+            throw new ServiceException("举报已办结，无需催办");
+        }
+        Date now = new Date();
+        petition.setUrgeCount(petition.getUrgeCount() == null ? 1 : petition.getUrgeCount() + 1);
+        petition.setLastUrgeTime(now);
+        petition.setUpdateBy(operator);
+        petitionMapper.updateJcPetition(petition);
+        writeTrace(petitionId, ACT_URGE,
+                "催办" + (StringUtils.isEmpty(opinion) ? "" : "：" + opinion) + "（累计第 " + petition.getUrgeCount() + " 次）",
+                petition.getStatus(), petition.getStatus(), operator);
+        return petitionMapper.selectJcPetitionByPetitionId(petitionId);
+    }
+
+    @Override
+    public List<JcPetition> selectOverdue() {
+        return petitionMapper.selectOverdue();
+    }
+
+    @Override
+    @Transactional
+    public JcPetition rateByReceipt(String receiptCode, Integer satisfaction, String comment) {
+        if (satisfaction == null || satisfaction < 1 || satisfaction > 5) {
+            throw new ServiceException("满意度评分须为 1-5 星");
+        }
+        String text = StringUtils.isEmpty(comment) ? null : comment.trim();
+        if (text != null && text.length() > 500) {
+            throw new ServiceException("评价说明不能超过 500 字");
+        }
+        JcPetition petition = queryByReceipt(receiptCode);
+        if (petition == null) {
+            throw new ServiceException("回执码不存在，请核对后重试");
+        }
+        if (petition.getStatus().compareTo(STATUS_FEEDBACK) < 0) {
+            throw new ServiceException("办理结果反馈后才能评价");
+        }
+        JcPetition upd = new JcPetition();
+        upd.setPetitionId(petition.getPetitionId());
+        upd.setSatisfaction(satisfaction);
+        upd.setSatisfactionComment(text);
+        upd.setSatisfactionTime(new Date());
+        upd.setUpdateBy("举报人");
+        petitionMapper.updateJcPetition(upd);
+        writeTrace(petition.getPetitionId(), ACT_RATE,
+                "举报人评价满意度 " + satisfaction + " 星（覆盖式更新）",
+                petition.getStatus(), petition.getStatus(), "举报人");
+        return queryByReceipt(receiptCode);
+    }
+
+    // ═══════════════════════ 段16：并案 / 自动催办 ═══════════════════════
+
+    @Override
+    @Transactional
+    public JcPetition merge(Long childId, Long masterId, String remark, String operator) {
+        if (childId == null || masterId == null) {
+            throw new ServiceException("从件与主件举报ID不能为空");
+        }
+        if (childId.equals(masterId)) {
+            throw new ServiceException("不能把举报并入自身");
+        }
+        JcPetition child = petitionMapper.selectJcPetitionByPetitionId(childId);
+        JcPetition master = petitionMapper.selectMergeMaster(masterId);
+        if (child == null || master == null) {
+            throw new ServiceException("从件或主件举报不存在或已删除");
+        }
+        if (STATUS_ARCHIVED.equals(child.getStatus()) || STATUS_REJECTED.equals(child.getStatus())) {
+            throw new ServiceException("从件已办结，无需并案");
+        }
+        // 同一被举报对象才可并案（对象为空时按标题人工判断，这里要求双方对象一致或均为空）
+        String childTarget = StringUtils.nvl(child.getTargetName(), "");
+        String masterTarget = StringUtils.nvl(master.getTargetName(), "");
+        if (StringUtils.isNotEmpty(childTarget) && StringUtils.isNotEmpty(masterTarget)
+                && !childTarget.equals(masterTarget)) {
+            throw new ServiceException("被举报对象不一致（" + childTarget + " / " + masterTarget + "），不允许并案");
+        }
+        // 主件不能是从件（禁止并案链）
+        if (master.getMergedInto() != null) {
+            throw new ServiceException("目标举报已是并案从件（并入 ID " + master.getMergedInto() + "），请以其主件为并案对象");
+        }
+        String mergedRemark = StringUtils.isEmpty(remark) ? "与 ID " + masterId + " 并案办理" : remark.trim();
+        petitionMapper.updateMerge(childId, masterId, mergedRemark, operator);
+        // 双侧留痕：从件记并入事实，主件记收并事实
+        writeTrace(childId, ACT_MERGE, "并案：并入主件 ID " + masterId + "（" + mergedRemark + "）",
+                child.getStatus(), child.getStatus(), operator);
+        writeTrace(masterId, ACT_MERGE, "收并从件 ID " + childId + "（" + child.getTitle() + "）",
+                master.getStatus(), master.getStatus(), operator);
+        return petitionMapper.selectJcPetitionByPetitionId(childId);
+    }
+
+    @Override
+    @Transactional
+    public JcPetition unmerge(Long childId, String operator) {
+        JcPetition child = petitionMapper.selectJcPetitionByPetitionId(childId);
+        if (child == null) {
+            throw new ServiceException("举报不存在或已删除");
+        }
+        if (child.getMergedInto() == null) {
+            throw new ServiceException("该举报不是并案从件");
+        }
+        Long masterId = child.getMergedInto();
+        petitionMapper.updateUnmerge(childId, operator);
+        writeTrace(childId, ACT_UNMERGE, "解除并案：恢复独立办理（原主件 ID " + masterId + "）",
+                child.getStatus(), child.getStatus(), operator);
+        writeTrace(masterId, ACT_UNMERGE, "从件 ID " + childId + " 解除并案，恢复独立",
+                null, null, operator);
+        return petitionMapper.selectJcPetitionByPetitionId(childId);
+    }
+
+    @Override
+    public List<JcPetition> selectMergeCandidates(Long petitionId) {
+        JcPetition petition = petitionMapper.selectJcPetitionByPetitionId(petitionId);
+        if (petition == null) {
+            throw new ServiceException("举报不存在或已删除");
+        }
+        if (StringUtils.isEmpty(petition.getTargetName())) {
+            return Collections.emptyList();
+        }
+        return petitionMapper.selectMergeCandidates(petition.getTargetName(), petitionId);
+    }
+
+    @Override
+    public List<JcPetition> selectMergedChildren(Long masterId) {
+        return petitionMapper.selectMergedChildren(masterId);
+    }
+
+    @Override
+    @Transactional
+    public int autoUrgeOverdue() {
+        List<JcPetition> overdue = petitionMapper.selectOverdueNeverUrged();
+        int count = 0;
+        for (JcPetition p : overdue) {
+            try {
+                Date now = new Date();
+                JcPetition upd = new JcPetition();
+                upd.setPetitionId(p.getPetitionId());
+                upd.setUrgeCount(1);
+                upd.setLastUrgeTime(now);
+                upd.setUpdateBy("system");
+                petitionMapper.updateJcPetition(upd);
+                writeTrace(p.getPetitionId(), ACT_URGE,
+                        "系统自动催办：办理已超期（截止 " + (p.getHandleDeadline() == null ? "-" : p.getHandleDeadline())
+                                + "），请尽快办结并反馈举报人",
+                        p.getStatus(), p.getStatus(), "system");
+                count++;
+            } catch (Exception e) {
+                // 单件失败不阻断批次
+            }
+        }
+        return count;
+    }
+
+    @Override
+    public List<JcPetition> selectDissatisfied() {
+        return petitionMapper.selectDissatisfied();
     }
 
     // ═══════════════════════ 预警与统计 ═══════════════════════
@@ -427,6 +615,20 @@ public class JcPetitionServiceImpl implements IJcPetitionService {
         stat.setByCategory(toItems(petitionMapper.statByCategory()));
         stat.setByChannel(toItems(petitionMapper.statByChannel()));
         stat.setMonthlyTrend(toItems(petitionMapper.statMonthlyTrend()));
+        // 段16：满意度与催办统计
+        Map<String, Object> sat = petitionMapper.statSatisfaction();
+        if (sat != null) {
+            Object satAvg = sat.get("satisfactionAvg");
+            stat.setSatisfactionAvg(satAvg instanceof Number
+                    ? Math.round(((Number) satAvg).doubleValue() * 10.0) / 10.0 : 0.0);
+            stat.setSatisfactionCount(toLong(sat.get("satisfactionCount")));
+        }
+        stat.setSatisfactionDist(toItems(petitionMapper.statSatisfactionDist()));
+        stat.setUrgeTotal(petitionMapper.statUrgeTotal());
+        // 段16：热点对象 Top10 与低分复核计数
+        stat.setTopTargets(petitionMapper.statTopTargets(10));
+        List<JcPetition> dissatisfied = petitionMapper.selectDissatisfied();
+        stat.setDissatisfiedCount((long) (dissatisfied == null ? 0 : dissatisfied.size()));
         return stat;
     }
 
