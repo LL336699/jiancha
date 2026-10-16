@@ -22,12 +22,20 @@ import org.apache.commons.io.FilenameUtils;
 import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.config.RuoYiConfig;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.file.FileUploadUtils;
+import com.ruoyi.system.service.ISysDictTypeService;
+
+import java.util.Map;
 
 import com.jiancha.biz.petition.domain.JcPetition;
+import com.jiancha.biz.petition.domain.JcPetitionMessage;
 import com.jiancha.biz.petition.domain.PetitionSubmitRequest;
+import com.jiancha.biz.petition.service.IJcPetitionMessageService;
 import com.jiancha.biz.petition.service.IJcPetitionService;
+
+import java.util.Map;
 
 /**
  * 舞弊举报箱 Controller（免登录）
@@ -54,6 +62,12 @@ public class JcPetitionPublicController {
 
     @Autowired
     private IJcPetitionService petitionService;
+
+    @Autowired
+    private IJcPetitionMessageService messageService;
+
+    @Autowired
+    private ISysDictTypeService dictTypeService;
 
     /**
      * 提交举报。
@@ -125,4 +139,64 @@ public class JcPetitionPublicController {
         }
         return request.getRemoteAddr();
     }
+
+    // ═══════════════════════ 段16：双向留言 / 满意度评价 ═══════════════════════
+
+    /**
+     * 举报人凭回执码留言（与受理人双向沟通；办结后通道关闭）。
+     */
+    @PostMapping("/message")
+    public AjaxResult postMessage(@RequestBody Map<String, String> body) {
+        String receiptCode = body == null ? null : body.get("receiptCode");
+        String content = body == null ? null : body.get("content");
+        int rows = messageService.postByReceipt(receiptCode, content);
+        return rows > 0 ? AjaxResult.success("留言成功") : AjaxResult.error("留言失败");
+    }
+
+    /**
+     * 举报人凭回执码拉取往来留言（打开即视为已读受理人回复）。
+     */
+    @GetMapping("/messages/{receiptCode}")
+    public AjaxResult listMessages(@PathVariable String receiptCode) {
+        java.util.List<JcPetitionMessage> list = messageService.listByReceipt(receiptCode);
+        return AjaxResult.success(list);
+    }
+
+    /**
+     * 举报人凭回执码评价满意度（1-5 星；办理结果反馈后开放，可覆盖更新）。
+     */
+    @PostMapping("/rate")
+    public AjaxResult rate(@RequestBody Map<String, Object> body) {
+        if (body == null) {
+            return AjaxResult.error("参数不能为空");
+        }
+        String receiptCode = (String) body.get("receiptCode");
+        Integer satisfaction = body.get("satisfaction") instanceof Number
+                ? ((Number) body.get("satisfaction")).intValue() : null;
+        Object commentObj = body.get("comment");
+        String comment = commentObj == null ? null : String.valueOf(commentObj);
+        JcPetition petition = petitionService.rateByReceipt(receiptCode, satisfaction, comment);
+        petition.setReceiptHash(null);
+        return AjaxResult.success("评价成功，感谢您的反馈", petition);
+    }
+
+    /**
+     * 举报箱公开字典（段16）：免登录独立举报箱页无法走鉴权字典接口，
+     * 此处按白名单类型输出举报箱所需的少量枚举字典（不含任何业务数据）。
+     */
+    @GetMapping("/dicts")
+    public AjaxResult dicts() {
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        for (String type : DICT_TYPES) {
+            result.put(type, dictTypeService.selectDictDataByType(type).stream()
+                    .map(d -> Map.of("label", d.getDictLabel(), "value", d.getDictValue()))
+                    .collect(java.util.stream.Collectors.toList()));
+        }
+        return AjaxResult.success(result);
+    }
+
+    /** 举报箱公开字典类型白名单（仅枚举类字典，不含敏感口径） */
+    private static final String[] DICT_TYPES = {
+            "jc_petition_category", "jc_petition_channel", "jc_petition_status", "jc_warn_level"
+    };
 }
