@@ -50,6 +50,7 @@ public class JcPetition extends BaseEntity {
     private String category;
 
     /** 是否匿名（0实名 1匿名） */
+    @Excel(name = "匿名/实名", readConverterExp = "0=实名,1=匿名")
     private String anonymousFlag;
 
     /** 举报人姓名（AES-GCM 密文，管理端按权限解密） */
@@ -62,9 +63,11 @@ public class JcPetition extends BaseEntity {
     private String reporterIdcard;
 
     /** 被举报对象姓名 */
+    @Excel(name = "被举报对象")
     private String targetName;
 
     /** 被举报对象所在部门 */
+    @Excel(name = "对象所在部门")
     private String targetDept;
 
     /** 涉及金额（元） */
@@ -76,9 +79,11 @@ public class JcPetition extends BaseEntity {
     private String status;
 
     /** 预警级别（""/黄灯/红灯，与线索口径一致） */
+    @Excel(name = "预警级别")
     private String warnLevel;
 
     /** 办理截止时间（受理时按 sys_config 时限计算） */
+    @Excel(name = "办理截止时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date handleDeadline;
 
@@ -87,6 +92,36 @@ public class JcPetition extends BaseEntity {
 
     /** 反馈内容（状态达到已反馈后，举报人凭回执码可见） */
     private String feedback;
+
+    /** 举报人满意度（1-5，已反馈后凭回执码评价，段16） */
+    @Excel(name = "满意度(1-5)")
+    private Integer satisfaction;
+
+    /** 评价说明（段16） */
+    @Excel(name = "评价说明")
+    private String satisfactionComment;
+
+    /** 评价时间（段16） */
+    @Excel(name = "评价时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private Date satisfactionTime;
+
+    /** 催办次数（段16） */
+    @Excel(name = "催办次数")
+    private Integer urgeCount;
+
+    /** 最近催办时间（段16） */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private Date lastUrgeTime;
+
+    /** 并案主件举报ID（NULL=独立件；段16 并案管理） */
+    private Long mergedInto;
+
+    /** 并案说明（为何并入主件；段16） */
+    private String mergedRemark;
+
+    /** 并案主件事由标题（联查展示，不落库；段16） */
+    private String mergedTitle;
 
     /** 关联线索编号（展示字段，来自 jc_clue.clue_no） */
     private String clueNo;
@@ -252,6 +287,70 @@ public class JcPetition extends BaseEntity {
 
     public void setFeedback(String feedback) {
         this.feedback = feedback;
+    }
+
+    public Integer getSatisfaction() {
+        return satisfaction;
+    }
+
+    public void setSatisfaction(Integer satisfaction) {
+        this.satisfaction = satisfaction;
+    }
+
+    public String getSatisfactionComment() {
+        return satisfactionComment;
+    }
+
+    public void setSatisfactionComment(String satisfactionComment) {
+        this.satisfactionComment = satisfactionComment;
+    }
+
+    public Date getSatisfactionTime() {
+        return satisfactionTime;
+    }
+
+    public void setSatisfactionTime(Date satisfactionTime) {
+        this.satisfactionTime = satisfactionTime;
+    }
+
+    public Integer getUrgeCount() {
+        return urgeCount;
+    }
+
+    public void setUrgeCount(Integer urgeCount) {
+        this.urgeCount = urgeCount;
+    }
+
+    public Date getLastUrgeTime() {
+        return lastUrgeTime;
+    }
+
+    public void setLastUrgeTime(Date lastUrgeTime) {
+        this.lastUrgeTime = lastUrgeTime;
+    }
+
+    public Long getMergedInto() {
+        return mergedInto;
+    }
+
+    public void setMergedInto(Long mergedInto) {
+        this.mergedInto = mergedInto;
+    }
+
+    public String getMergedRemark() {
+        return mergedRemark;
+    }
+
+    public void setMergedRemark(String mergedRemark) {
+        this.mergedRemark = mergedRemark;
+    }
+
+    public String getMergedTitle() {
+        return mergedTitle;
+    }
+
+    public void setMergedTitle(String mergedTitle) {
+        this.mergedTitle = mergedTitle;
     }
 
     public String getClueNo() {

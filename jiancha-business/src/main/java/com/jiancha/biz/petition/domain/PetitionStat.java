@@ -41,6 +41,24 @@ public class PetitionStat {
     /** 近12个月提交趋势 */
     private List<PetitionStatItem> monthlyTrend;
 
+    /** 举报人满意度均分（1-5，未评价不计入；段16） */
+    private Double satisfactionAvg;
+
+    /** 满意度评价人数（段16） */
+    private Long satisfactionCount;
+
+    /** 满意度分布（key=1..5 星级，value=人数；段16） */
+    private List<PetitionStatItem> satisfactionDist;
+
+    /** 累计催办次数（段16） */
+    private Long urgeTotal;
+
+    /** 热点被举报对象 TopN（次数/未办结数/涉及金额合计/最近举报时间；段16） */
+    private List<java.util.Map<String, Object>> topTargets;
+
+    /** 低分满意度件数（1-2 星，触发复核；段16） */
+    private Long dissatisfiedCount;
+
     public Long getTotal() {
         return total;
     }
@@ -119,5 +137,53 @@ public class PetitionStat {
 
     public void setMonthlyTrend(List<PetitionStatItem> monthlyTrend) {
         this.monthlyTrend = monthlyTrend;
+    }
+
+    public Double getSatisfactionAvg() {
+        return satisfactionAvg;
+    }
+
+    public void setSatisfactionAvg(Double satisfactionAvg) {
+        this.satisfactionAvg = satisfactionAvg;
+    }
+
+    public Long getSatisfactionCount() {
+        return satisfactionCount;
+    }
+
+    public void setSatisfactionCount(Long satisfactionCount) {
+        this.satisfactionCount = satisfactionCount;
+    }
+
+    public List<PetitionStatItem> getSatisfactionDist() {
+        return satisfactionDist;
+    }
+
+    public void setSatisfactionDist(List<PetitionStatItem> satisfactionDist) {
+        this.satisfactionDist = satisfactionDist;
+    }
+
+    public Long getUrgeTotal() {
+        return urgeTotal;
+    }
+
+    public void setUrgeTotal(Long urgeTotal) {
+        this.urgeTotal = urgeTotal;
+    }
+
+    public List<java.util.Map<String, Object>> getTopTargets() {
+        return topTargets;
+    }
+
+    public void setTopTargets(List<java.util.Map<String, Object>> topTargets) {
+        this.topTargets = topTargets;
+    }
+
+    public Long getDissatisfiedCount() {
+        return dissatisfiedCount;
+    }
+
+    public void setDissatisfiedCount(Long dissatisfiedCount) {
+        this.dissatisfiedCount = dissatisfiedCount;
     }
 }

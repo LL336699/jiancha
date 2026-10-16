@@ -28,6 +28,14 @@
         <result property="handleDeadline"  column="handle_deadline"/>
         <result property="clueId"          column="clue_id"/>
         <result property="feedback"        column="feedback"/>
+        <result property="satisfaction"       column="satisfaction"/>
+        <result property="satisfactionComment" column="satisfaction_comment"/>
+        <result property="satisfactionTime"   column="satisfaction_time"/>
+        <result property="urgeCount"       column="urge_count"/>
+        <result property="lastUrgeTime"    column="last_urge_time"/>
+        <result property="mergedInto"      column="merged_into"/>
+        <result property="mergedRemark"    column="merged_remark"/>
+        <result property="mergedTitle"     column="merged_title"/>
         <result property="createBy"        column="create_by"/>
         <result property="createTime"      column="create_time"/>
         <result property="updateBy"        column="update_by"/>
@@ -53,6 +61,12 @@
         <result property="handleDeadline"  column="handle_deadline"/>
         <result property="clueId"          column="clue_id"/>
         <result property="feedback"        column="feedback"/>
+        <result property="satisfaction"       column="satisfaction"/>
+        <result property="urgeCount"       column="urge_count"/>
+        <result property="lastUrgeTime"    column="last_urge_time"/>
+        <result property="mergedInto"      column="merged_into"/>
+        <result property="mergedRemark"    column="merged_remark"/>
+        <result property="mergedTitle"     column="merged_title"/>
         <result property="createBy"        column="create_by"/>
         <result property="createTime"      column="create_time"/>
         <result property="updateBy"        column="update_by"/>
@@ -68,12 +82,17 @@
                p.reporter_name, p.reporter_phone, p.reporter_idcard,
                p.target_name, p.target_dept, p.amount, p.status, p.warn_level, p.handle_deadline,
                p.clue_id, p.feedback,
+               p.satisfaction, p.satisfaction_comment, p.satisfaction_time,
+               p.urge_count, p.last_urge_time,
+               p.merged_into, p.merged_remark,
+               mm.title as merged_title,
                p.create_by, p.create_time, p.update_by, p.update_time, p.remark,
                c.clue_no as clue_no,
                case when p.handle_deadline is null then null
                     else timestampdiff(hour, now(), p.handle_deadline) end as remain_hours
         from jc_petition p
         left join jc_clue c on c.clue_id = p.clue_id
+        left join jc_petition mm on mm.petition_id = p.merged_into and mm.del_flag = '0'
     </sql>
 
     <!-- 列表专用列：剔除 content 与三个加密敏感列 -->
@@ -82,19 +101,23 @@
                p.channel, p.category, p.anonymous_flag,
                p.target_name, p.target_dept, p.amount, p.status, p.warn_level, p.handle_deadline,
                p.clue_id, p.feedback,
+               p.satisfaction, p.urge_count, p.last_urge_time,
+               p.merged_into, p.merged_remark,
+               mm.title as merged_title,
                p.create_by, p.create_time, p.update_by, p.update_time, p.remark,
                c.clue_no as clue_no,
                case when p.handle_deadline is null then null
                     else timestampdiff(hour, now(), p.handle_deadline) end as remain_hours
         from jc_petition p
         left join jc_clue c on c.clue_id = p.clue_id
+        left join jc_petition mm on mm.petition_id = p.merged_into and mm.del_flag = '0'
     </sql>
 
     <!-- 回执码检索：只取公开安全列，敏感列与哈希列不进结果（哈希另走专用查询） -->
     <select id="selectByReceiptLookup" resultMap="JcPetitionResult">
         select p.petition_id, p.title, p.channel, p.category, p.anonymous_flag,
                p.target_name, p.target_dept, p.amount, p.status, p.warn_level, p.handle_deadline,
-               p.feedback, p.create_time, p.receipt_hash
+               p.feedback, p.satisfaction, p.satisfaction_time, p.create_time, p.receipt_hash
         from jc_petition p
         where p.receipt_lookup = #{receiptLookup} and p.del_flag = '0'
     </select>
@@ -120,6 +143,12 @@
             </if>
             <if test="anonymousFlag != null and anonymousFlag != ''">
                 and p.anonymous_flag = #{anonymousFlag}
+            </if>
+            <if test="params.mergedFlag != null and params.mergedFlag == '0'.toString()">
+                and p.merged_into is null
+            </if>
+            <if test="params.mergedFlag != null and params.mergedFlag == '1'.toString()">
+                and p.merged_into is not null
             </if>
             <if test="targetName != null and targetName != ''">
                 and p.target_name like concat('%', #{targetName}, '%')
@@ -199,6 +228,11 @@
             <if test="handleDeadline != null">handle_deadline = #{handleDeadline},</if>
             <if test="clueId != null">clue_id = #{clueId},</if>
             <if test="feedback != null">feedback = #{feedback},</if>
+            <if test="satisfaction != null">satisfaction = #{satisfaction},</if>
+            <if test="satisfactionComment != null">satisfaction_comment = #{satisfactionComment},</if>
+            <if test="satisfactionTime != null">satisfaction_time = #{satisfactionTime},</if>
+            <if test="urgeCount != null">urge_count = #{urgeCount},</if>
+            <if test="lastUrgeTime != null">last_urge_time = #{lastUrgeTime},</if>
             <if test="remark != null">remark = #{remark},</if>
             update_by = #{updateBy},
             update_time = sysdate()
@@ -286,6 +320,112 @@
         where p.del_flag = '0' and p.create_time &gt;= date_sub(curdate(), interval 11 month)
         group by date_format(p.create_time, '%Y-%m')
         order by name
+    </select>
+
+    <!-- ==================== 段16：满意度 / 催办 / 督办清单 ==================== -->
+
+    <!-- 满意度均分与评价人数 -->
+    <select id="statSatisfaction" resultType="java.util.Map">
+        select avg(satisfaction) as satisfactionAvg, count(satisfaction) as satisfactionCount
+        from jc_petition where del_flag = '0' and satisfaction is not null
+    </select>
+
+    <!-- 满意度分布（1-5 星） -->
+    <select id="statSatisfactionDist" resultType="java.util.Map">
+        select concat(satisfaction, '星') as name, count(1) as value
+        from jc_petition
+        where del_flag = '0' and satisfaction is not null
+        group by satisfaction
+        order by satisfaction
+    </select>
+
+    <!-- 累计催办次数 -->
+    <select id="statUrgeTotal" resultType="java.lang.Long">
+        select ifnull(sum(urge_count), 0) from jc_petition where del_flag = '0'
+    </select>
+
+    <!-- 超期督办清单：未办结且已超办理截止（含从未催办与最近催办信息） -->
+    <select id="selectOverdue" resultMap="JcPetitionListResult">
+        <include refid="selectPetitionListCols"/>
+        where p.del_flag = '0'
+          and p.status not in ('5','6','7')
+          and p.handle_deadline is not null
+          and p.handle_deadline &lt; now()
+        order by p.handle_deadline asc
+    </select>
+
+    <!-- ==================== 段16：并案 / 热点分析 / 低分复核 ==================== -->
+
+    <!-- 并案候选：同一被举报对象的其他非终态举报 -->
+    <select id="selectMergeCandidates" resultMap="JcPetitionListResult">
+        <include refid="selectPetitionListCols"/>
+        where p.del_flag = '0'
+          and p.target_name = #{targetName}
+          and p.petition_id &lt;&gt; #{excludeId}
+          and p.status not in ('6','7')
+          and p.merged_into is null
+        order by p.create_time desc
+    </select>
+
+    <!-- 并案主件校验（必须存在、非删除、非终态从件自身） -->
+    <select id="selectMergeMaster" resultMap="JcPetitionListResult">
+        <include refid="selectPetitionListCols"/>
+        where p.petition_id = #{masterId} and p.del_flag = '0'
+    </select>
+
+    <!-- 执行并案 -->
+    <update id="updateMerge">
+        update jc_petition
+        set merged_into = #{masterId}, merged_remark = #{remark},
+            update_by = #{updateBy}, update_time = sysdate()
+        where petition_id = #{petitionId} and del_flag = '0'
+    </update>
+
+    <!-- 解除并案（恢复独立，清空并案标记） -->
+    <update id="updateUnmerge">
+        update jc_petition
+        set merged_into = null, merged_remark = null,
+            update_by = #{updateBy}, update_time = sysdate()
+        where petition_id = #{petitionId} and del_flag = '0'
+    </update>
+
+    <!-- 已并入指定主件的从件清单 -->
+    <select id="selectMergedChildren" resultMap="JcPetitionListResult">
+        <include refid="selectPetitionListCols"/>
+        where p.del_flag = '0' and p.merged_into = #{masterId}
+        order by p.create_time asc
+    </select>
+
+    <!-- 热点分析：被举报对象 TopN -->
+    <select id="statTopTargets" resultType="java.util.Map">
+        select p.target_name as name,
+               count(1) as total,
+               sum(case when p.status not in ('5','6','7') then 1 else 0 end) as handling,
+               ifnull(sum(p.amount), 0) as amountSum,
+               max(p.create_time) as lastTime
+        from jc_petition p
+        where p.del_flag = '0' and p.target_name is not null and p.target_name != ''
+        group by p.target_name
+        order by total desc, amountSum desc
+        limit #{limit}
+    </select>
+
+    <!-- 低分满意度复核清单（1-2 星） -->
+    <select id="selectDissatisfied" resultMap="JcPetitionListResult">
+        <include refid="selectPetitionListCols"/>
+        where p.del_flag = '0' and p.satisfaction is not null and p.satisfaction &lt;= 2
+        order by p.satisfaction_time desc
+    </select>
+
+    <!-- 超期且从未催办（自动催办任务扫描） -->
+    <select id="selectOverdueNeverUrged" resultMap="JcPetitionListResult">
+        <include refid="selectPetitionListCols"/>
+        where p.del_flag = '0'
+          and p.status not in ('5','6','7')
+          and p.handle_deadline is not null
+          and p.handle_deadline &lt; now()
+          and p.merged_into is null
+          and (p.urge_count is null or p.urge_count = 0)
     </select>
 
 </mapper>

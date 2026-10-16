@@ -4,6 +4,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.ibatis.annotations.Param;
+
 import com.jiancha.biz.petition.domain.JcPetition;
 
 /**
@@ -57,4 +59,45 @@ public interface JcPetitionMapper {
 
     /** 按被举报对象+时间窗查询历史举报（重复提示，不自动合并） */
     List<JcPetition> selectRecentByTarget(String targetName, Date since);
+
+    // ═══════════════ 段16：满意度 / 催办 / 督办 ═══════════════
+
+    /** 统计：满意度均分与评价人数 */
+    Map<String, Object> statSatisfaction();
+
+    /** 统计：满意度分布（1-5 星） */
+    List<Map<String, Object>> statSatisfactionDist();
+
+    /** 统计：累计催办次数 */
+    Long statUrgeTotal();
+
+    /** 超期督办清单（未办结且超截止时间，按超期时长升序） */
+    List<JcPetition> selectOverdue();
+
+    // ═══════════════ 段16：并案 / 热点分析 / 低分复核 ═══════════════
+
+    /** 并案候选清单：同一被举报对象、非本件、双方均非终态可并（跨终态只读展示） */
+    List<JcPetition> selectMergeCandidates(@Param("targetName") String targetName, @Param("excludeId") Long excludeId);
+
+    /** 并案主件详情（校验主件存在） */
+    JcPetition selectMergeMaster(@Param("masterId") Long masterId);
+
+    /** 执行并案：从件指向主件 */
+    int updateMerge(@Param("petitionId") Long petitionId, @Param("masterId") Long masterId,
+                    @Param("remark") String remark, @Param("updateBy") String updateBy);
+
+    /** 解除并案：从件恢复独立 */
+    int updateUnmerge(@Param("petitionId") Long petitionId, @Param("updateBy") String updateBy);
+
+    /** 已并入主件的从件清单 */
+    List<JcPetition> selectMergedChildren(@Param("masterId") Long masterId);
+
+    /** 热点分析：被举报对象 TopN（次数/未办结数/最近举报时间） */
+    List<Map<String, Object>> statTopTargets(@Param("limit") int limit);
+
+    /** 低分满意度复核清单（1-2 星评价） */
+    List<JcPetition> selectDissatisfied();
+
+    /** 超期且从未催办的举报（自动催办任务扫描用） */
+    List<JcPetition> selectOverdueNeverUrged();
 }
