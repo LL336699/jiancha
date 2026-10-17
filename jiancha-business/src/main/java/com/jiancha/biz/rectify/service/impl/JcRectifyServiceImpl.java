@@ -114,6 +114,10 @@ public class JcRectifyServiceImpl implements IJcRectifyService {
     @Autowired
     private IJcPetitionService petitionService;
 
+    /** 消息通知（段17）：新问题登记即时提醒纪检岗 */
+    @Autowired
+    private com.jiancha.biz.notify.service.INotifyService notifyService;
+
     @Autowired
     private ISysConfigService configService;
 
@@ -153,6 +157,11 @@ public class JcRectifyServiceImpl implements IJcRectifyService {
         if (rows <= 0) {
             throw new ServiceException("问题登记失败");
         }
+        // 即时通知纪检岗（段17 消息通知中心；举报转整改同样经过本方法，两个入口都覆盖）
+        notifyService.sendToRoleKey("admin", "整改", "rectify", issue.getIssueId(),
+                "新整改问题待分解措施：" + issue.getTitle(),
+                "编号 " + issue.getIssueNo() + "，严重程度 " + issue.getSeverity()
+                        + "，整改截止 " + com.ruoyi.common.utils.DateUtils.parseDateToStr("yyyy-MM-dd", issue.getDeadline()) + "。");
         return issueMapper.selectJcRectifyIssueByIssueId(issue.getIssueId());
     }
 

@@ -53,6 +53,10 @@ public class JcPetitionMessageServiceImpl implements IJcPetitionMessageService {
     @Autowired
     private IJcPetitionService petitionService;
 
+    /** 消息通知（段17）：举报人留言即时提醒纪检岗 */
+    @Autowired
+    private com.jiancha.biz.notify.service.INotifyService notifyService;
+
     /**
      * 留言限流（复用滑动窗口限流器）：键取「msg:回执码」，
      * 与提交限流（IP 键）相互独立；同一举报的留言频率受限，防恶意刷屏。
@@ -95,6 +99,10 @@ public class JcPetitionMessageServiceImpl implements IJcPetitionMessageService {
             // 轨迹留痕：只记「举报人留言」事实，正文不进轨迹（轨迹管理端可见，正文双方可见）
             petitionService.appendTrace(petition.getPetitionId(), "message",
                     "举报人留言 " + text.length() + " 字", petition.getStatus(), petition.getStatus(), "举报人");
+            // 即时通知纪检岗（段17 消息通知中心）
+            notifyService.sendToRoleKey("admin", "举报", "petition", petition.getPetitionId(),
+                    "举报人有新留言待回复：" + petition.getTitle(),
+                    "请在举报管理中查看并回复。");
         }
         return rows;
     }

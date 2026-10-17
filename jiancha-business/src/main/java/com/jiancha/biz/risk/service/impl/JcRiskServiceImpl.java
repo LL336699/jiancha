@@ -71,6 +71,10 @@ public class JcRiskServiceImpl implements IJcRiskService {
     @Autowired
     private RiskRuleEngine ruleEngine;
 
+    /** 消息通知（段17）：高危预警即时提醒纪检岗 */
+    @Autowired
+    private com.jiancha.biz.notify.service.INotifyService notifyService;
+
     @Autowired
     private IJcRectifyService rectifyService;
 
@@ -284,6 +288,12 @@ public class JcRiskServiceImpl implements IJcRiskService {
                 alert.setStatus(STATUS_PENDING);
                 alert.setCreateBy("风控引擎");
                 created += alertMapper.insertJcRiskAlert(alert);
+                // 高等级预警即时通知纪检岗（段17，等级 2=高）
+                if ("2".equals(alert.getAlertLevel())) {
+                    notifyService.sendToRoleKey("admin", "风控", "risk", alert.getAlertId(),
+                            "风控引擎命中高危预警：" + alert.getRuleName(),
+                            "对象：" + hit.getObjectName() + "，得分 " + hit.getScore() + "，请及时核实处置。");
+                }
             }
         }
         return created;

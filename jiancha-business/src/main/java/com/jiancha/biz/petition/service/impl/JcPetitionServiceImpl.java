@@ -161,6 +161,9 @@ public class JcPetitionServiceImpl implements IJcPetitionService {
     private JcPetitionMessageMapper messageMapper;
 
     @Autowired
+    private com.jiancha.biz.notify.service.INotifyService notifyService;
+
+    @Autowired
     private IJcClueService clueService;
 
     @Autowired
@@ -252,6 +255,12 @@ public class JcPetitionServiceImpl implements IJcPetitionService {
         // 6. 首条轨迹
         writeTrace(petition.getPetitionId(), ACT_SUBMIT, "举报提交成功，待受理",
                 "", STATUS_PENDING, "举报人");
+
+        // 7. 即时通知纪检岗（段17 消息通知中心）
+        notifyService.sendToRoleKey("admin", "举报", "petition", petition.getPetitionId(),
+                "收到新的舞弊举报：" + petition.getTitle(),
+                "渠道：" + petition.getChannel() + (anonymous ? "，匿名提交" : "，实名提交")
+                        + "，请及时受理。");
         return petition;
     }
 
