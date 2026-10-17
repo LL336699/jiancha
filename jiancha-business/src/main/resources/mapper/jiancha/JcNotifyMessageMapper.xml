@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiancha.biz.notify.mapper.JcNotifyMessageMapper">
+
+    <resultMap id="JcNotifyMessageResult" type="com.jiancha.biz.notify.domain.JcNotifyMessage">
+        <id     property="notifyId"     column="notify_id"/>
+        <result property="title"        column="title"/>
+        <result property="content"      column="content"/>
+        <result property="notifyType"   column="notify_type"/>
+        <result property="bizModule"    column="biz_module"/>
+        <result property="bizId"        column="biz_id"/>
+        <result property="receiver"     column="receiver"/>
+        <result property="receiverName" column="receiver_name"/>
+        <result property="isRead"       column="is_read"/>
+        <result property="readTime"     column="read_time"/>
+        <result property="createBy"     column="create_by"/>
+        <result property="createTime"   column="create_time"/>
+        <result property="remark"       column="remark"/>
+    </resultMap>
+
+    <sql id="selectNotifyVo">
+        select notify_id, title, content, notify_type, biz_module, biz_id, receiver,
+               receiver_name, is_read, read_time, create_by, create_time, remark
+        from jc_notify_message
+    </sql>
+
+    <insert id="insertJcNotifyMessage" parameterType="com.jiancha.biz.notify.domain.JcNotifyMessage" useGeneratedKeys="true" keyProperty="notifyId">
+        insert into jc_notify_message (title, content, notify_type, biz_module, biz_id, receiver,
+                                       receiver_name, is_read, read_time, create_by, create_time, remark)
+        values (#{title}, #{content}, #{notifyType}, #{bizModule}, #{bizId}, #{receiver},
+                #{receiverName}, '0', null, #{createBy}, sysdate(), #{remark})
+    </insert>
+
+    <select id="selectListByReceiver" parameterType="com.jiancha.biz.notify.domain.JcNotifyMessage" resultMap="JcNotifyMessageResult">
+        <include refid="selectNotifyVo"/>
+        where receiver = #{receiver}
+        <if test="notifyType != null and notifyType != ''">
+            and notify_type = #{notifyType}
+        </if>
+        <if test="readFlagQuery != null and readFlagQuery != ''">
+            and is_read = #{readFlagQuery}
+        </if>
+        <if test="title != null and title != ''">
+            and title like concat('%', #{title}, '%')
+        </if>
+        order by create_time desc, notify_id desc
+    </select>
+
+    <select id="countUnread" parameterType="String" resultType="long">
+        select count(*) from jc_notify_message
+        where receiver = #{receiver} and is_read = '0'
+    </select>
+
+    <select id="selectRecentUnread" resultMap="JcNotifyMessageResult">
+        <include refid="selectNotifyVo"/>
+        where receiver = #{receiver} and is_read = '0'
+        order by create_time desc, notify_id desc
+        limit #{limit}
+    </select>
+
+    <select id="selectByNotifyIdAndReceiver" resultMap="JcNotifyMessageResult">
+        <include refid="selectNotifyVo"/>
+        where notify_id = #{notifyId} and receiver = #{receiver}
+    </select>
+
+    <update id="markRead">
+        update jc_notify_message
+        set is_read = '1', read_time = sysdate()
+        where notify_id = #{notifyId} and receiver = #{receiver} and is_read = '0'
+    </update>
+
+    <update id="markAllRead">
+        update jc_notify_message
+        set is_read = '1', read_time = sysdate()
+        where receiver = #{receiver} and is_read = '0'
+    </update>
+
+    <delete id="deleteByNotifyIdAndReceiver">
+        delete from jc_notify_message where notify_id = #{notifyId} and receiver = #{receiver}
+    </delete>
+
+    <delete id="deleteReadByReceiver">
+        delete from jc_notify_message where receiver = #{receiver} and is_read = '1'
+    </delete>
+
+    <select id="existsToday" resultType="int">
+        select count(*) from jc_notify_message
+        where receiver = #{receiver} and title = #{title}
+          and create_time >= curdate() and create_time &lt; date_add(curdate(), interval 1 day)
+    </select>
+
+    <delete id="deleteReadBefore">
+        delete from jc_notify_message where is_read = '1' and read_time &lt; date_sub(curdate(), interval #{days} day)
+    </delete>
+
+    <select id="selectUserNamesByRoleKey" parameterType="String" resultType="String">
+        select distinct u.user_name
+        from sys_user u
+        join sys_user_role ur on ur.user_id = u.user_id
+        join sys_role r on r.role_id = ur.role_id
+        where r.role_key = #{roleKey} and r.status = '0' and u.status = '0' and u.del_flag = '0'
+    </select>
+
+    <select id="selectNickNameByUserName" parameterType="String" resultType="String">
+        select nick_name from sys_user where user_name = #{userName} and del_flag = '0' limit 1
+    </select>
+
+    <select id="statUnreadByType" resultType="java.util.HashMap">
+        select notify_type as notifyType, count(*) as unread
+        from jc_notify_message
+        where receiver = #{receiver} and is_read = '0'
+        group by notify_type
+        order by unread desc
+    </select>
+
+</mapper>
